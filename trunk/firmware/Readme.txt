@@ -20,16 +20,20 @@
 **                V15.4 06/01/2009: Add Automatic Band Pass Filter Selection.
 **                V15.5 14/01/2009: Add the Smooth tune and band pass filter 
 **                                  to the "Set freq by Si570 registers" command.
+**                V15.6 17/01/2009: Bug fix, no connection on boot from PC.
+**                                  Used a FreqSmooth so the returned freq is
+**                                  the real freq and not the smooth center freq.
 **
 **************************************************************************
 
 * Compiler: WinAVR-20071221
-* V1.4		3866 bytes (94.4% Full)
-* V1.5.1	3856 bytes (94.1% Full)
-* V1.5.2	3482 bytes (85.0% Full)
-* V1.5.3	3892 bytes (95.0% Full)
-* V1.5.4	3918 bytes (95.7% Full)
-* V1.5.5	4044 bytes (98.7% Full)
+* V14		3866 bytes (94.4% Full)
+* V15.1		3856 bytes (94.1% Full)
+* V15.2		3482 bytes (85.0% Full)
+* V15.3		3892 bytes (95.0% Full)
+* V15.4		3918 bytes (95.7% Full)
+* V15.5		4044 bytes (98.7% Full)
+* V15.6		4072 bytes (99.4% Full)
 
 * Modifications by Fred Krom, PE0FKO at Nov 2008
 * - Hang on no pull up of SCL line i2c to Si570 (or power down of Si590 in SR-V90)

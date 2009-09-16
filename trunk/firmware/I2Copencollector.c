@@ -23,8 +23,9 @@
 //**
 //**************************************************************************
 
-#include "SI570.h"
+#include "main.h"
 
+#ifdef INCLUDE_I2C
 
 #define SDA					(1<<BIT_SDA)
 #define SCL					(1<<BIT_SCL)
@@ -158,3 +159,5 @@ I2CReceiveLastByte(void)
 	I2CSend1();									//send Acknowledge
   	return b;
 }
+
+#endif
