@@ -20,6 +20,9 @@
 //**                V15.4 06/01/2009: Add Automatic Band Pass Filter Selection.
 //**                V15.5 14/01/2009: Add the Smooth tune and band pass filter 
 //**                                  to the "Set freq by Si570 registers" command.
+//**                V15.6 17/01/2009: Bug fix, no connection on boot from PC.
+//**                                  Used a FreqSmooth so the returned freq is
+//**                                  the real freq and not the smooth center freq.
 //**
 //**************************************************************************
 //
@@ -78,16 +81,16 @@
 // - Many code optimalization to make the small code.
 // - Calculation of the freq from the Si570 registers and call 0x32, command 0x30
 
-#include "SI570.h"
+#include "main.h"
 
 static	EEMEM	var_t		E;					// Variables in Eeprom
 				var_t		R;					// Variables in Ram
+
+				Si570_t		Si570_Data;			// Si570 register values
 				sint32_t	replyBuf[2];		// USB Reply buffer
-				bool		SI570_online;		// Si570 is working
 static			uint8_t		command;			// usbFunctionWrite command
 
-
-#define INCLUDE_NOT_USE							// Also the code for compatibility old firmware
+EMPTY_INTERRUPT( __vector_default );			// Redirect all unused interrupts to reti
 
 
 /* ------------------------------------------------------------------------- */
@@ -102,34 +105,34 @@ uchar usbFunctionWrite(uchar *data, uchar len) //sends len bytes to SI570
 	case 0x31:							// Write only the Si570 registers
 		if (len >= 6)
 		{
-			Si570CalcFreq(data);		// Calc the freq from the Si570 register value
-			Si570SetFreq(*(uint32_t*)	// and call the Si570SetFreq(..) with the freq!
-							data, R.Si570_PPM != 0);
+			CalcFreqFromRegSi570(data);	// Calc the freq from the Si570 register value
+			SetFreq(*(uint32_t*)data);	// and call the SetFreq(..) with the freq!
 		}
 		break;
 
 	case 0x32:							// Set frequency by value and load Si570
 		if (len >= 4) 
 		{
-			Si570SetFreq(*(uint32_t*)data, R.Si570_PPM != 0);
+			SetFreq(*(uint32_t*)data);
 		}
 		break;
 
 	case 0x33:							// write new crystal frequency to EEPROM and use it.
 		if (len >= 4) 
 		{
-			R.Si570_FreqXtal = *(uint32_t*)data;
-			eeprom_write_block(&R.Si570_FreqXtal, &E.Si570_FreqXtal, sizeof(E.Si570_FreqXtal));
+			R.FreqXtal = *(uint32_t*)data;
+			eeprom_write_block(&R.FreqXtal, &E.FreqXtal, sizeof(E.FreqXtal));
 		}
 		break;
 
 	case 0x34:							// Write new startup frequency to eeprom
 		if (len >= 4) 
 		{
-			eeprom_write_block((uint32_t*)data, &E.Si570_Freq, sizeof(E.Si570_Freq));
+			eeprom_write_block((uint32_t*)data, &E.Freq, sizeof(E.Freq));
 		}
 		break;
 
+#ifdef INCLUDE_SMOOTH
 	case 0x35:							// Write new smooth tune to eeprom and use it.
 		if (len >= 2) 
 		{
@@ -137,6 +140,7 @@ uchar usbFunctionWrite(uchar *data, uchar len) //sends len bytes to SI570
 			eeprom_write_block(&R.Si570_PPM, &E.Si570_PPM, sizeof(E.Si570_PPM));
 		}
 		break;
+#endif
 	}
 
 	return 1;
@@ -151,9 +155,9 @@ usbFunctionSetup(uchar data[8])
 	switch(rq->bRequest)
 	{
 #ifdef INCLUDE_NOT_USE
-	case 0:					       				// ECHO value
-		replyBuf[0].w0 = rq->wValue.word;		// rq->bRequest identical data[1]!
-		return 2;
+//	case 0:					       				// ECHO value
+//		replyBuf[0].w0 = rq->wValue.word;		// rq->bRequest identical data[1]!
+//		return 2;
 
 	case 1:					       				// set port directions
 		USR_DDR = data[2] & 
@@ -177,7 +181,9 @@ usbFunctionSetup(uchar data[8])
 #endif
 
 	case 0x15:									// Set IO port with mask and data bytes
+#ifdef INCLUDE_ABPF
 		if (!FilterCrossOverOn)
+#endif
 		{
 			uint8_t msk,dat;					// Only 2 I/O pins in this hardware
 			msk = (rq->wValue.bytes[0]<<4) & 0x30;	// Mask word (here only byte used)
@@ -185,12 +191,14 @@ usbFunctionSetup(uchar data[8])
 			USR_DDR  = (USR_DDR & ~0x30) | msk;
 			USR_PORT = (USR_PORT & ~msk) | dat;
 		}
-		// no break or return here, enter the command 0x16
+		replyBuf[0].w0 = (USR_PIN>>4) & 0x03;	// Return low byte I/O pin's
+        return sizeof(uint16_t);
 
 	case 0x16:					       			// Read I/O bits
 		replyBuf[0].w0 = (USR_PIN>>4) & 0x03;	// Return low byte I/O pin's
         return sizeof(uint16_t);
 
+#ifdef INCLUDE_ABPF
 	case 0x17:									// Read and Write the Filter Cross over point's and use it.
 		{
 			uint8_t index = rq->wIndex.bytes[0];
@@ -207,6 +215,7 @@ usbFunctionSetup(uchar data[8])
 			usbMsgPtr = (uint8_t*)&R.FilterCrossOver;
 		}
 		return 4 * sizeof(uint16_t);
+#endif
 
 	case 0x30:							      	// Set frequnecy by register and load Si570
 	case 0x31:									// Write only Si570 registers
@@ -218,27 +227,30 @@ usbFunctionSetup(uchar data[8])
 		return USB_NO_MSG;						// use usbFunctionWrite to transfer data
 
 	case 0x3a:									// Return running frequnecy
-		usbMsgPtr = (uint8_t*)&R.Si570_Freq;
+		usbMsgPtr = (uint8_t*)&R.Freq;
         return sizeof(uint32_t);
 
+#ifdef INCLUDE_SMOOTH
 	case 0x3b:									// Return smooth tune ppm value
 		usbMsgPtr = (uint8_t*)&R.Si570_PPM;
         return sizeof(uint16_t);
+#endif
 
 	case 0x3c:									// Return the startup frequency
-		eeprom_read_block(&replyBuf[0].dw, &E.Si570_Freq, sizeof(E.Si570_Freq));
+		eeprom_read_block(&replyBuf[0].dw, &E.Freq, sizeof(E.Freq));
 		return sizeof(uint32_t);
 
 	case 0x3d:									// Return the XTal frequnecy
-		usbMsgPtr = (uint8_t*)&R.Si570_FreqXtal;
+		usbMsgPtr = (uint8_t*)&R.FreqXtal;
         return sizeof(uint32_t);
 
 	case 0x3e:   						    	// read out calculated frequency control registers
 		usbMsgPtr = (uint8_t*)&Si570_Data;
 		return sizeof(Si570_Data);
 
-	case 0x3f:   				    			// SI570: read out frequency control registers
-		SI570_Read();
+	case 0x3f:   				    			// read out chip frequency control registers
+		GetRegFromSi570();
+		usbMsgPtr = (uint8_t*)&Si570_Data;
         return sizeof(Si570_Data);
 
 	case 0x41:      						 	// Set the new i2c address or factory default (pe0fko: function changed)
@@ -249,17 +261,17 @@ usbFunctionSetup(uchar data[8])
 
 #ifdef INCLUDE_NOT_USE
 	case 0x50:   						    	// set USR_P1 and get cw-key status
-	    if (data[2] == 0)
+	    if (rq->wValue.bytes[0] == 0)
 			USR_PORT &= ~USR_P1;
 		else
 			USR_PORT |= USR_P1;
 
-		replyBuf[0].b0 = USR_PIN & (USR_P2 | (1<<BIT_SDA)); // read SDA and cw key level simultaneously
-        return 1;
+		replyBuf[0].b0 = USR_PIN & (USR_P2);
+        return sizeof(uint8_t);
 
-	case 0x51:  						     	// read SDA and cw key level simultaneously
-		replyBuf[0].b0 = USR_PIN & (USR_P2 | (1<<BIT_SDA));
-        return 1;
+	case 0x51:  						     	// read CW key level
+		replyBuf[0].b0 = USR_PIN & (USR_P2);
+        return sizeof(uint8_t);
 #endif
 	}
 
@@ -268,69 +280,79 @@ usbFunctionSetup(uchar data[8])
 }
 
 
+// This function is neded, otherwise the USB device is not
+// recognized after a reboot.
+// The watchdog will need to be reset (<16ms). Fast (div 2K) prescaler after watchdog reset!
+// MCUSR must be cleared (datasheet) it is not done within the wdt_disable().
+void __attribute__((naked))
+     __attribute__((section(".init3")))
+dotInit3(void)
+{
+	MCUSR = 0;
+	wdt_disable();
+
+	USR_DDR = USR_P1;	// All port pins inputs except USR_P1 switching output
+	USR_PORT = 0;		// Inp on startup, no pullups
+}
+
+
 /* ------------------------------------------------------------------------- */
 /* --------------------------------- main ---------------------------------- */
 /* ------------------------------------------------------------------------- */
+
 int __attribute__((noreturn)) 
 main(void)
 {
-	wdt_disable();					// In case of WDT reset
-
-	// Set I/O
-	USR_DDR = USR_P1;				// All port pins inputs except USR_P1 switching output
-	USR_PORT = 0;				    // Inp on startup, no pullups
-
 	// Load the persistend data from eeprom
 	// If not initialized eeprom, define to the "factory defaults".
 	eeprom_read_block(&R, &E, sizeof(E));
-	if (R.SI570_I2cAdr == 0xff)
+	if (R.SI570_I2cAdr == 0xFF)
 	{
-		R.RC_OSCCAL		 = 0xFF;
-		R.SI570_I2cAdr	 = 0x55;
-		R.Si570_PPM		 = 3500;
+		R.RC_OSCCAL		= 0xFF;
+		R.SI570_I2cAdr	= 0x55;
+		R.Freq			= DEVICE_STARTUP;
+		R.FreqXtal		= DEVICE_XTAL;
 
-		// Strange, the compiler (WinAVR-20071221) did calculate it wrong!
-		R.Si570_Freq	 = 59139686;	// 4.0 * 7.050 * _2(21);
-		R.Si570_FreqXtal = 1917384130;	// 114.285 * _2(24);
-
+#ifdef INCLUDE_SMOOTH
+		R.FreqSmooth	= 0;
+		R.Si570_PPM		= 3500;
+#endif
+#ifdef INCLUDE_ABPF
 		// Default filter cross over frequnecy for softrock v9
-		R.FilterCrossOver[0].word	=  4.0 * 4.0 * _2(5);
-		R.FilterCrossOver[1].word	=  8.0 * 4.0 * _2(5);
-		R.FilterCrossOver[2].word	= 16.0 * 4.0 * _2(5);
+		R.FilterCrossOver[0].word =  4.0 * 4.0 * _2(5);
+		R.FilterCrossOver[1].word =  8.0 * 4.0 * _2(5);
+		R.FilterCrossOver[2].word = 16.0 * 4.0 * _2(5);
 		R.FilterCrossOver[3].word = true;
-
+#endif
 		eeprom_write_block(&R, &E, sizeof(E));
 	}
 
 	if(R.RC_OSCCAL != 0xFF)
 		OSCCAL = R.RC_OSCCAL;
 
-	// Set initial startup frequenty later.
-	SI570_online = false;
-
 	usbDeviceDisconnect();
-	_delay_ms(900);
+	_delay_ms(300);
 	usbDeviceConnect();
 
 	wdt_enable(WDTO_120MS);				// Watchdog 120ms
 
-	usbInit();
+#ifdef INCLUDE_SI570
+	SI570_online = false;
+#endif
 
+	DeviceInit();
+
+	usbInit();
 	sei();
+
 	while(true)
 	{
 	    wdt_reset();
 	    usbPoll();
 
-		// Check if Si570 is online and intialize if nessesary
-		if ((I2C_PIN & (1<<BIT_SCL)) == 0)				// SCL Low is now power on the SI570 chip
-		{
-			SI570_online = false;
-		} 
-		else if (!SI570_online)
-		{
-			Si570SetFreq(R.Si570_Freq, false);
-		}
+#ifdef INCLUDE_SI570
+		DeviceInit();
+#endif
 	}
 }
 
@@ -341,12 +363,14 @@ relocation truncated to fit: R_AVR_13_PCREL against symbol `exit' defined in .fi
 d:/winavr-20081205/bin/../lib/gcc/avr/4.3.2/avr25\libgcc.a(_exit.o)
 */
 
+
 /*
  * Compiler: WinAVR-20071221
- * V1.4		3866 bytes (94.4% Full)
- * V1.5.1	3856 bytes (94.1% Full)
- * V1.5.2	3482 bytes (85.0% Full)
- * V1.5.3	3892 bytes (95.0% Full)
- * V1.5.4	3918 bytes (95.7% Full)
- * V1.5.5	4044 bytes (98.7% Full)
+ * V14		3866 bytes (94.4% Full)
+ * V15.1	3856 bytes (94.1% Full)
+ * V15.2	3482 bytes (85.0% Full)
+ * V15.3	3892 bytes (95.0% Full)
+ * V15.4	3918 bytes (95.7% Full)
+ * V15.5	4044 bytes (98.7% Full)
+ * V15.6	4072 bytes (99.4% Full)
  */

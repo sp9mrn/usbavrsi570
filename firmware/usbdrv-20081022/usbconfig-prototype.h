@@ -1,74 +1,3 @@
-//************************************************************************
-//**
-//** Project......: Firmware USB AVR Si570 controler.
-//**
-//** Platform.....: ATtiny45 @ 16.5 MHz
-//**
-//** Licence......: This software is freely available for non-commercial 
-//**                use - i.e. for research and experimentation only!
-//**                Copyright: (c) 2006 by OBJECTIVE DEVELOPMENT Software GmbH
-//**                Based on ObDev's AVR USB driver by Christian Starkjohann
-//**
-//** Programmer...: F.W. Krom, PE0FKO
-//** 
-//** Description..: Changed AVR-USB usbconfig-prototype.h file
-//**
-//** History......: V15.1 02/12/2008: First release of PE0FKO.
-//**                V15.2 19/12/2008: Change the Si570 code.
-//**                V15.3 02/01/2009: Add Automatich smooth tune.
-//**                V15.4 06/01/2009: Add Automatic Band Pass Filter Selection.
-//**                V15.5 14/01/2009: Add the Smooth tune and band pass filter 
-//**                                  to the "Set freq by Si570 registers" command.
-//**                V15.6 17/01/2009: Bug fix, no connection on boot from PC.
-//**                                  Used a FreqSmooth so the returned freq is
-//**                                  the real freq and not the smooth center freq.
-//**
-//**************************************************************************
-
-
-/* ---------------------------- Hardware Config ---------------------------- */
-
-#define	USB_CFG_IOPORTNAME			B
-#define	USB_CFG_DMINUS_BIT			2
-#define	USB_CFG_DPLUS_BIT			0
-
-/* --------------------------- Functional Range ---------------------------- */
-
-#define	USB_CFG_MAX_BUS_POWER		20	// mA
-#define	USB_CFG_IMPLEMENT_FN_WRITE	1
-
-#ifndef __ASSEMBLER__
-extern void usbEventResetReady(void);
-#endif
-#define	USB_RESET_HOOK(isReset)			if(!isReset){usbEventResetReady();}
-#define	USB_CFG_HAVE_MEASURE_FRAME_LENGTH	1
-
-
-/* -------------------------- Device Description --------------------------- */
-
-#define	USB_CFG_VENDOR_ID			0xc0, 0x16
-#define	USB_CFG_DEVICE_ID			0xdc, 0x05
-#define	USB_CFG_DEVICE_VERSION		0x00, 0x01
-
-#define	USB_CFG_VENDOR_NAME			'w', 'w', 'w', '.', 'o', 'b', 'd', 'e', 'v', '.', 'a', 't'
-#define	USB_CFG_VENDOR_NAME_LEN		12
-//#define USB_CFG_VENDOR_NAME		'S', 'o', 'f', 't', 'R', 'o', 'c', 'k', '-', 'S', 'D', 'R'
-//#define USB_CFG_VENDOR_NAME_LEN	12
-
-#define	USB_CFG_DEVICE_NAME			'D', 'G', '8', 'S', 'A', 'Q', '-', 'I', '2', 'C'
-#define	USB_CFG_DEVICE_NAME_LEN		10
-
-//#define USB_CFG_SERIAL_NUMBER		'B', 'e', 't', 'a', '1', '.', '1' 
-//#define USB_CFG_SERIAL_NUMBER_LEN	7 
-#define	USB_CFG_SERIAL_NUMBER		'P','E','0','F','K','O','-','2','.','0'
-#define	USB_CFG_SERIAL_NUMBER_LEN	10
-
-
-
-/* ------------------------ usbconfig-prototype.h ------------------------- */
-// Original version of the usbconfig-prototype.h file.
-// Only the above #defines are commented out to prevent some compile warnings.
-
 /* Name: usbconfig.h
  * Project: AVR USB driver
  * Author: Christian Starkjohann
@@ -97,15 +26,15 @@ section at the end of this file).
 
 /* ---------------------------- Hardware Config ---------------------------- */
 
-//#define USB_CFG_IOPORTNAME      D
+#define USB_CFG_IOPORTNAME      D
 /* This is the port where the USB bus is connected. When you configure it to
  * "B", the registers PORTB, PINB and DDRB will be used.
  */
-//#define USB_CFG_DMINUS_BIT      4
+#define USB_CFG_DMINUS_BIT      4
 /* This is the bit number in USB_CFG_IOPORT where the USB D- line is connected.
  * This may be any bit in the port.
  */
-//#define USB_CFG_DPLUS_BIT       2
+#define USB_CFG_DPLUS_BIT       2
 /* This is the bit number in USB_CFG_IOPORT where the USB D+ line is connected.
  * This may be any bit in the port. Please note that D+ must also be connected
  * to interrupt pin INT0! [You can also use other interrupts, see section
@@ -182,12 +111,12 @@ section at the end of this file).
 /* Define this to 1 if the device has its own power supply. Set it to 0 if the
  * device is powered from the USB bus.
  */
-//#define USB_CFG_MAX_BUS_POWER           100
+#define USB_CFG_MAX_BUS_POWER           100
 /* Set this variable to the maximum USB bus power consumption of your device.
  * The value is in milliamperes. [It will be divided by two since USB
  * communicates power requirements in units of 2 mA.]
  */
-//#define USB_CFG_IMPLEMENT_FN_WRITE      0
+#define USB_CFG_IMPLEMENT_FN_WRITE      0
 /* Set this to 1 if you want usbFunctionWrite() to be called for control-out
  * transfers. Set it to 0 if you don't need it and want to save a couple of
  * bytes.
@@ -262,21 +191,21 @@ section at the end of this file).
  * usbFunctionWrite(). Use the global usbCurrentDataToken and a static variable
  * for each control- and out-endpoint to check for duplicate packets.
  */
-//#define USB_CFG_HAVE_MEASURE_FRAME_LENGTH   0
+#define USB_CFG_HAVE_MEASURE_FRAME_LENGTH   0
 /* define this macro to 1 if you want the function usbMeasureFrameLength()
  * compiled in. This function can be used to calibrate the AVR's RC oscillator.
  */
 
 /* -------------------------- Device Description --------------------------- */
 
-//#define  USB_CFG_VENDOR_ID       0xc0, 0x16
+#define  USB_CFG_VENDOR_ID       0xc0, 0x16
 /* USB vendor ID for the device, low byte first. If you have registered your
  * own Vendor ID, define it here. Otherwise you use one of obdev's free shared
  * VID/PID pairs. Be sure to read USBID-License.txt for rules!
  * + This template uses obdev's shared VID/PID pair: 0x16c0/0x5dc.
  * + Use this VID/PID pair ONLY if you understand the implications!
  */
-//#define  USB_CFG_DEVICE_ID       0xdc, 0x05
+#define  USB_CFG_DEVICE_ID       0xdc, 0x05
 /* This is the ID of the product, low byte first. It is interpreted in the
  * scope of the vendor ID. If you have registered your own VID with usb.org
  * or if you have licensed a PID from somebody else, define it here. Otherwise
@@ -285,11 +214,11 @@ section at the end of this file).
  * + This template uses obdev's shared VID/PID pair: 0x16c0/0x5dc.
  * + Use this VID/PID pair ONLY if you understand the implications!
  */
-//#define USB_CFG_DEVICE_VERSION  0x00, 0x01
+#define USB_CFG_DEVICE_VERSION  0x00, 0x01
 /* Version number of the device: Minor number first, then major number.
  */
-//#define USB_CFG_VENDOR_NAME     'o', 'b', 'd', 'e', 'v', '.', 'a', 't'
-//#define USB_CFG_VENDOR_NAME_LEN 8
+#define USB_CFG_VENDOR_NAME     'o', 'b', 'd', 'e', 'v', '.', 'a', 't'
+#define USB_CFG_VENDOR_NAME_LEN 8
 /* These two values define the vendor name returned by the USB device. The name
  * must be given as a list of characters under single quotes. The characters
  * are interpreted as Unicode (UTF-16) entities.
@@ -298,8 +227,8 @@ section at the end of this file).
  * obdev's free shared VID/PID pair. See the file USBID-License.txt for
  * details.
  */
-//#define USB_CFG_DEVICE_NAME     'T', 'e', 'm', 'p', 'l', 'a', 't', 'e'
-//#define USB_CFG_DEVICE_NAME_LEN 8
+#define USB_CFG_DEVICE_NAME     'T', 'e', 'm', 'p', 'l', 'a', 't', 'e'
+#define USB_CFG_DEVICE_NAME_LEN 8
 /* Same as above for the device name. If you don't want a device name, undefine
  * the macros. See the file USBID-License.txt before you assign a name if you
  * use a shared VID/PID.
