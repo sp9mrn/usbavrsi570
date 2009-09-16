@@ -29,45 +29,69 @@
 **                                  Add cmd 0x00, return firmware version number.
 **                                  Add cmd 0x20, Write Si570 register
 **                                  Add cmd 0x0F, Reset by Watchdog
+**                V15.8 10/02/2009: CalcFreqFromRegSi570() will use the fixed
+**                                  xtal freq of 114.285 MHz. Change static 
+**                                  variables to make some more free rom space.
 **
 **************************************************************************
 
-* Compiler: WinAVR-20071221
-* V14		3866 bytes (94.4% Full)
-* V15.1		3856 bytes (94.1% Full)
-* V15.2		3482 bytes (85.0% Full)
-* V15.3		3892 bytes (95.0% Full)
-* V15.4		3918 bytes (95.7% Full)
-* V15.5		4044 bytes (98.7% Full)
-* V15.6		4072 bytes (99.4% Full)
-* V15.7		4090 bytes (99.9% Full)
+Compiler: WinAVR-20071221
+V14			3866 bytes (94.4% Full)
+V15.1		3856 bytes (94.1% Full)
+V15.2		3482 bytes (85.0% Full)
+V15.3		3892 bytes (95.0% Full)
+V15.4		3918 bytes (95.7% Full)
+V15.5		4044 bytes (98.7% Full)
+V15.6		4072 bytes (99.4% Full)
+V15.7		4090 bytes (99.9% Full)
+V15.8		3984 bytes (97.3% Full)
 
 
-* Modifications by Fred Krom, PE0FKO at Nov 2008
-* - Hang on no pull up of SCL line i2c to Si570 (or power down of Si590 in SR-V90)
-* - Compiler (WinAVR-20071221) optimized the i2c delay loop a way!
-* - Calculating the Si570 registers from a given frequency, returns a HIGH HS_DIV value
-* - Source cleanup and split in deferent files.
-* - Remove many debug USB command calls!
-* - Version usbdrv-20081022
-* - Add command 0x31, write only the Si570 registers (change freq max 3500ppm)
-* - Change the Si570 register calculation and now use the full 38 bits of the chip!
-*   Is is accurate, fast and small code! It cost only 350us (old 2ms) to calculate the new registers.
-* - Add command 0x3d, Read the actual used xtal frequency (4 bytes, 24 bits fraction, 8.24 bits)
-* - Add the "automatic smooth tune" functionality.
-* - Add the I/O function command 0x15
-* - Add the commands 0x34, 0x35, 0x3A, 0x3B, 0x3C, 0x3D
-* - Add the I/O function command 0x16
-* - Add read / write Filter cross over points 0x17
-* - Many code optimalization to make the small code.
-* - Calculation of the freq from the Si570 registers and call 0x32, command 0x30
+Fuse bit information:
+Fuse high byte:
+0xdd = 1 1 0 1   1 1 0 1     RSTDISBL disabled (SPI programming can be done)
+0x5d = 0 1 0 1   1 1 0 1     RSTDISBL enabled (PB5 can be used as I/O pin)
+       ^ ^ ^ ^   ^ \-+-/ 
+       | | | |   |   +------ BODLEVEL 2..0 (brownout trigger level -> 2.7V)
+       | | | |   +---------- EESAVE (preserve EEPROM on Chip Erase -> not preserved)
+       | | | +-------------- WDTON (watchdog timer always on -> disable)
+       | | +---------------- SPIEN (enable serial programming -> enabled)
+       | +------------------ DWEN (debug wire enable)
+       +-------------------- RSTDISBL (disable external reset -> disabled)
 
+Fuse low byte:
+0xe1 = 1 1 1 0   0 0 0 1
+       ^ ^ \+/   \--+--/
+       | |  |       +------- CKSEL 3..0 (clock selection -> HF PLL)
+       | |  +--------------- SUT 1..0 (BOD enabled, fast rising power)
+       | +------------------ CKOUT (clock output on CKOUT pin -> disabled)
+       +-------------------- CKDIV8 (divide clock by 8 -> don't divide) 
+
+
+Modifications by Fred Krom, PE0FKO at Nov 2008
+- Hang on no pull up of SCL line i2c to Si570 (or power down of Si590 in SR-V90)
+- Compiler (WinAVR-20071221) optimized the i2c delay loop a way!
+- Calculating the Si570 registers from a given frequency, returns a HIGH HS_DIV value
+- Source cleanup and split in deferent files.
+- Remove many debug USB command calls!
+- Version usbdrv-20081022
+- Add command 0x31, write only the Si570 registers (change freq max 3500ppm)
+- Change the Si570 register calculation and now use the full 38 bits of the chip!
+  Is is accurate, fast and small code! It cost only 350us (old 2ms) to calculate the new registers.
+- Add command 0x3d, Read the actual used xtal frequency (4 bytes, 24 bits fraction, 8.24 bits)
+- Add the "automatic smooth tune" functionality.
+- Add the I/O function command 0x15
+- Add the commands 0x34, 0x35, 0x3A, 0x3B, 0x3C, 0x3D
+- Add the I/O function command 0x16
+- Add read / write Filter cross over points 0x17
+- Many code optimalization to make the small code.
+- Calculation of the freq from the Si570 registers and call 0x32, command 0x30
 
 
 Implemented functions:
 ----------------------
 
-V15.7
+V15.8
 +----+---+---+---+-----------------------------------------------------
 |Cmd |SQA|FKO| IO| Function
 +0x--+---+---+---+-----------------------------------------------------
@@ -170,6 +194,43 @@ Parameters:
     index:           Don't care
     bytes:           Version word variable
     size:            2
+
+
+Command 0x01:
+-------------
+Set port directions.
+Do not use, use I/O function 0x15
+
+
+Command 0x02:
+-------------
+Read ports.
+Do not use, use I/O function 0x15
+
+
+Command 0x03:
+-------------
+Read port states.
+Do not use.
+
+
+Command 0x04:
+-------------
+Set ports.
+Do not use, use I/O function 0x15
+
+
+Command 0x0F:
+-------------
+Restart the board (done by Watchdog timer).
+
+Parameters:
+    requesttype:    USB_ENDPOINT_IN
+    request:         0x0F
+    value:           Don't care
+    index:           Don't care
+    bytes:           NULL
+    size:            0
 
 
 Command 0x15:
@@ -537,3 +598,27 @@ Parameters:
     size:            0
 
 
+Command 0x50:
+-------------
+Set IO_P1 and read CW key level.
+
+Parameters:
+    requesttype:    USB_ENDPOINT_IN
+    request:         0x50
+    value:           Output bool to user output P1
+    index:           0
+    bytes:           pointer to 1 byte variable P2
+    size:            1
+
+
+Command 0x51:
+-------------
+Read CW key level.
+
+Parameters:
+    requesttype:    USB_ENDPOINT_IN
+    request:         0x51
+    value:           0
+    index:           0
+    bytes:           pointer to 1 byte variable P2
+    size:            1
