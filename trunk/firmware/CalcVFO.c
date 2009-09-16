@@ -47,12 +47,14 @@ CalcFreqMulAdd(uint32_t iFreq)
 	"sbc %B1,%B2			\n\t"	// iFreq -= R.FreqSub
 	"sbc %C1,%C2			\n\t"
 	"sbc %D1,%D2			\n\t"
-	"brcc L_X_%=			\n\t"	// if iFreq is negative
+//	 ---- BUG in V15.10 ----
+//	"brcc L_X_%=			\n\t"	// if iFreq is negative
 
-	"add %A1,%A2			\n\t"	// then
-	"adc %B1,%B2			\n\t"	//   iFreq += R.FreqSub
-	"adc %C1,%C2			\n\t"	// Prevent a negative number
-	"adc %D1,%D2			\n\t"
+//	"add %A1,%A2			\n\t"	// then
+//	"adc %B1,%B2			\n\t"	//   iFreq += R.FreqSub
+//	"adc %C1,%C2			\n\t"	// Prevent a negative number
+//	"adc %D1,%D2			\n\t"
+//	 ---- BUG in V15.10 ----
 
 "L_X_%=:					\n\t"
 	"clc					\n\t"	// oFreq:iFreq *= R.FreqMul

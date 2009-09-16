@@ -35,7 +35,7 @@
 
 
 #define	VERSION_MAJOR	15
-#define	VERSION_MINOR	10
+#define	VERSION_MINOR	11
 
 
 // Switch's to set the code needed
@@ -168,7 +168,6 @@ extern	uint32_t	FreqSmoothTune;			// The smooth tune center frequency
 
 #ifdef INCLUDE_ABPF
 #define	FilterCrossOverOn	(R.FilterCrossOver[3].b0 != 0)
-extern	void		SetFilter(void);
 #endif
 
 
