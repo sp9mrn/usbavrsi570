@@ -28,6 +28,9 @@
 //**                                  Test errors in i2c code changed. 
 //**                                  Add cmd 0x00, return firmware version number.
 //**                                  Add cmd 0x20, Write Si570 register
+//**                V15.8 10/02/2009: CalcFreqFromRegSi570() will use the fixed
+//**                                  xtal freq of 114.285 MHz. Change static 
+//**                                  variables to make some more free rom space.
 //**
 //**************************************************************************
 //
@@ -88,8 +91,23 @@
 
 #include "main.h"
 
-static	EEMEM	var_t		E;					// Variables in Eeprom
-				var_t		R;					// Variables in Ram
+EEMEM	var_t		E;							// Variables in eeprom
+		var_t		R							// Variables in ram
+					=							// Variables in flash rom
+					{	0xFF					// RC_OSCCAL
+					,	DEVICE_XTAL				// FreqXtal
+					,	DEVICE_STARTUP			// Freq at startup
+#ifdef INCLUDE_SMOOTH
+					,	SMOOTH_PPM				// SmoothTunePPM
+#endif
+#ifdef INCLUDE_ABPF
+					, {	{	FILTER_COP_0 }		// Default filter cross over
+					,	{	FILTER_COP_1 }		// frequnecy for softrock V9
+					,	{	FILTER_COP_2 }		// BPF. Four value array.
+					,	{	FILTER_COP_3 } }
+#endif
+					,	DEVICE_I2C				// I2C address or ChipCrtlData
+					};
 
 				Si570_t		Si570_Data;			// Si570 register values
 				sint16_t	replyBuf[4];		// USB Reply buffer
@@ -330,25 +348,10 @@ main(void)
 {
 	// Load the persistend data from eeprom
 	// If not initialized eeprom, define to the "factory defaults".
-	eeprom_read_block(&R, &E, sizeof(E));
-	if (R.ChipCrtlData == 0xFF)
-	{
-		R.RC_OSCCAL		= 0xFF;
-		R.ChipCrtlData	= DEVICE_I2C;
-		R.Freq			= DEVICE_STARTUP;
-		R.FreqXtal		= DEVICE_XTAL;
-#ifdef INCLUDE_SMOOTH
-		R.SmoothTunePPM	= SMOOTH_PPM;
-#endif
-#ifdef INCLUDE_ABPF
-		// Default filter cross over frequnecy for softrock v9
-		R.FilterCrossOver[0].w = FILTER_COP_0;
-		R.FilterCrossOver[1].w = FILTER_COP_1;
-		R.FilterCrossOver[2].w = FILTER_COP_2;
-		R.FilterCrossOver[3].w = FILTER_COP_3;
-#endif
+	if (eeprom_read_byte(&E.ChipCrtlData) == 0xFF)
 		eeprom_write_block(&R, &E, sizeof(E));
-	}
+	else
+		eeprom_read_block(&R, &E, sizeof(E));
 
 	if(R.RC_OSCCAL != 0xFF)
 		OSCCAL = R.RC_OSCCAL;
@@ -394,4 +397,5 @@ d:/winavr-20081205/bin/../lib/gcc/avr/4.3.2/avr25\libgcc.a(_exit.o)
  * V15.5	4044 bytes (98.7% Full)
  * V15.6	4072 bytes (99.4% Full)
  * V15.7	4090 bytes (99.9% Full)
+ * V15.8	3984 bytes (97.3% Full)
  */

@@ -31,9 +31,10 @@
 #include "usbdrv.h"
 
 #define	VERSION_MAJOR	15
-#define	VERSION_MINOR	7
+#define	VERSION_MINOR	8
 
 #define	DEVICE_STARTUP	( 59139686 )			// 4.0 * 7.050 * _2(21)
+#define	DEFAULT_XTAL	(1917384130)			// 114.285 * _2(24)
 #define	FILTER_COP_0	(  4.0 * 4.0 * _2(5) )
 #define	FILTER_COP_1	(  8.0 * 4.0 * _2(5) )
 #define	FILTER_COP_2	( 16.0 * 4.0 * _2(5) )
@@ -49,7 +50,7 @@
 
 
 #ifdef	INCLUDE_SI570						// Need i2c for the Si570 chip
-#define	DEVICE_XTAL		(1917384130)		// 114.285 * _2(24)
+#define	DEVICE_XTAL		DEFAULT_XTAL		// 114.285 * _2(24)
 #define	DEVICE_I2C		(0x55)				// Default Si570 I2C address (can change per device)
 #define	INCLUDE_I2C							// Include the i2c code
 #define	INCLUDE_ABPF						// Include automatic band pass filter selection

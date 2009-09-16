@@ -13,6 +13,8 @@
 //**                I like to thank Francis Dupont, F6HSI for some usefull comment!
 //** 
 //** Description..: Calculations the frequency from the Si570 register value.
+//**                The xtal 114.285 will be used as default because that is also
+//**                used in the application.
 //**
 //** History......: V15.1 02/12/2008: First release of PE0FKO.
 //**                Check the main.c file
@@ -26,7 +28,8 @@ CalcFreqFromRegSi570(uint8_t* reg)
 {
 	// As I think about the problem:
 	//  Freq  = xtal * RFREQ / N
-	//  20.52 = 8.24 * 12.28 / 16.0
+	//  Freq  = 114.285 * RFREQ / N
+	//  20.52 = 8.24    * 12.28 / 16.0
 	//  20.52 = 20.52 / 16.0
 	//  19.53 = (20.52 << 1) / 16.0
 	//  19.53 --> 19.21	(remove 4 lowest bytes)
@@ -125,7 +128,9 @@ CalcFreqFromRegSi570(uint8_t* reg)
 
 	// Input operand list
 	//-------------------
-	: "r" (R.FreqXtal)		// %10		FreqXtal
+//	: "r" (R.FreqXtal)		// %10		FreqXtal
+//	: "r" (F_114_285)		// %10		114.285 * _2(24)
+	: "r" (DEFAULT_XTAL)	// %10		114.285 * _2(24)
 	, "0" (A0)				// 
 	, "1" (A1)				// 
 	, "2" (A2)				// 
