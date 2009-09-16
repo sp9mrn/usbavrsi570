@@ -2,7 +2,7 @@
 //**
 //** Project......: Firmware USB AVR Si570 controler.
 //**
-//** Platform.....: ATtiny45 @ 16.5 MHz
+//** Platform.....: ATtiny45  & Attiny85 @ 16.5 MHz
 //**
 //** Licence......: This software is freely available for non-commercial 
 //**                use - i.e. for research and experimentation only!
@@ -40,6 +40,11 @@
 //**                                  Move some static variables to register, smaller code size.
 //**                                  Add support for the CW Key_2 in command 0x50 & 0x51.
 //**                                  CW Key always return open if ABPF is enabled (command 0x50 & 0x51)
+//**               V15.11 27/07/2009: BUG in the CalcFreqMulAdd() with a negative subtract value.
+//**								  Change the SetFreq() so that the filter table is set and 
+//**								  after it the subtract multiply is done! (changed in order)
+//**								  Changed the SetFreq() so that cmd 0x3a will return the requested
+//**								  freq and not the Si570 freq. 
 //**
 //**************************************************************************
 //
@@ -205,7 +210,7 @@ usbFunctionSetup(uchar data[8])
 		 ~((1 << USB_CFG_DMINUS_BIT) 
 		 | (1 << USB_CFG_DPLUS_BIT));			// protect USB interface
 		return 0;
-#endif//INCLUDE_NOT_USED
+#endif
 
 	SWITCH_CASE(0x02)							// read ports (pe0fko changed)
 		replyBuf[0].b0 = IO_PIN;
@@ -219,14 +224,14 @@ usbFunctionSetup(uchar data[8])
 	SWITCH_CASE(0x04)							// set ports 
 #ifdef  INCLUDE_ABPF
 		if (!FilterCrossOverOn)
-#endif//INCLUDE_ABPF
+#endif
 		{
 			IO_PORT = data[2] & 
 			 ~((1 << USB_CFG_DMINUS_BIT) 
 			 | (1 << USB_CFG_DPLUS_BIT));		// protect USB interface
 		}
 		return 0;
-#endif//INCLUDE_NOT_USED
+#endif
 
 	SWITCH_CASE(0x0F)							// Watchdog reset
 		while(true) ;
@@ -234,7 +239,7 @@ usbFunctionSetup(uchar data[8])
 	SWITCH_CASE(0x15)							// Set IO port with mask and data bytes
 #ifdef  INCLUDE_ABPF
 		if (!FilterCrossOverOn)
-#endif//INCLUDE_ABPF
+#endif
 		{	// SoftRock V9 only had 2 I/O pins from tiny45 available.
 			uint8_t msk,dat;		
 			msk = (rq->wValue.bytes[0] << IO_BIT_START) & (IO_BIT_MASK << IO_BIT_START);
@@ -274,17 +279,17 @@ usbFunctionSetup(uchar data[8])
 
 			return 0;
 		}
-#endif//INCLUDE_ABPF
+#endif
 
 #ifdef  INCLUDE_SI570
 	SWITCH_CASE(0x20)							// [DEBUG] Write byte to Si570 register
 		Si570CmdReg(rq->wValue.bytes[1], rq->wIndex.bytes[0]);
 #ifdef  INCLUDE_SMOOTH
 		FreqSmoothTune = 0;						// Next SetFreq call no smoodtune
-#endif//INCLUDE_SMOOTH
+#endif
 		replyBuf[0].b0 = I2CErrors;				// return I2C transmission error status
         return sizeof(uint8_t);
-#endif//INCLUDE_SI570
+#endif
 
 	SWITCH_CASE6(0x30,0x31,0x32,0x33,0x34,0x35)
 		//	0x30						      	// Set frequnecy by register and load Si570
@@ -299,7 +304,7 @@ usbFunctionSetup(uchar data[8])
 	SWITCH_CASE(0x39)							// Return the frequency subtract multiply
 		usbMsgPtr = (uint8_t*)&R.FreqSub;
         return 2 * sizeof(uint32_t);
-#endif//INCLUDE_FREQ_SM
+#endif
 
 	SWITCH_CASE(0x3A)							// Return running frequnecy
 		usbMsgPtr = (uint8_t*)&R.Freq;
@@ -309,7 +314,7 @@ usbFunctionSetup(uchar data[8])
 	SWITCH_CASE(0x3B)							// Return smooth tune ppm value
 		usbMsgPtr = (uint8_t*)&R.SmoothTunePPM;
         return sizeof(uint16_t);
-#endif//INCLUDE_SMOOTH
+#endif
 
 	SWITCH_CASE(0x3C)							// Return the startup frequency
 		eeprom_read_block(replyBuf, &E.Freq, sizeof(E.Freq));
@@ -330,7 +335,7 @@ usbFunctionSetup(uchar data[8])
 	SWITCH_CASE(0x40)							// return I2C transmission error status
 		replyBuf[0].b0 = I2CErrors;
 		return sizeof(uint8_t);
-#endif//INCLUDE_I2C
+#endif
 
 	SWITCH_CASE(0x41)							// Set the new i2c address or factory default (pe0fko: function changed)
 		if (rq->wValue.bytes[0] != 0xFF)
@@ -342,7 +347,7 @@ usbFunctionSetup(uchar data[8])
 		replyBuf[0].b0 = (_BV(IO_P2) | _BV(BIT_SDA));	// CW Key 1 (PB4) & 2 (PB1 + i2c SDA)
 #ifdef  INCLUDE_ABPF
 		if (!FilterCrossOverOn)
-#endif//INCLUDE_ABPF
+#endif
 		{
 			if (usbRequest == 0x50)
 			{
@@ -415,7 +420,7 @@ main(void)
 
 #ifdef  INCLUDE_SI570
 		DeviceInit();
-#endif//INCLUDE_SI570
+#endif
 	}
 }
 
@@ -440,4 +445,5 @@ d:/winavr-20081205/bin/../lib/gcc/avr/4.3.2/avr25\libgcc.a(_exit.o)
  * V15.8	3984 bytes (97.3% Full)
  * V15.9	3984 bytes (97.3% Full)
  * V15.10	4018 bytes (98.1% Full)
+ * V15.11	4094 bytes (100.% Full)
  */

@@ -316,8 +316,44 @@ Si570_Small_Change(uint32_t current_Frequency)
 #endif
 
 void
-SetFreq(uint32_t freq)		// frequency [MHz] * 2^21
+SetFreq(uint32_t freq)				// frequency [MHz] * 2^21
 {
+	R.Freq = freq;
+
+#ifdef INCLUDE_ABPF
+	if (FilterCrossOverOn)
+	{
+		sint32_t Freq;
+		Freq.dw = R.Freq;			// Freq.w1 is 11.5bits
+
+		bit_1(IO_DDR, IO_P1);
+		bit_1(IO_DDR, IO_P2);
+
+		if (Freq.w1.w < R.FilterCrossOver[0].w)
+		{
+			bit_0(IO_PORT, IO_P1);
+			bit_0(IO_PORT, IO_P2);
+		}
+		else 
+		if (Freq.w1.w < R.FilterCrossOver[1].w)
+		{
+			bit_1(IO_PORT, IO_P1);
+			bit_0(IO_PORT, IO_P2);
+		}
+		else 
+		if (Freq.w1.w < R.FilterCrossOver[2].w)
+		{
+			bit_0(IO_PORT, IO_P1);
+			bit_1(IO_PORT, IO_P2);
+		}
+		else 
+		{
+			bit_1(IO_PORT, IO_P1);
+			bit_1(IO_PORT, IO_P2);
+		}
+	}
+#endif
+
 #ifdef INCLUDE_FREQ_SM
 	freq = CalcFreqMulAdd(freq);
 #endif
@@ -345,12 +381,6 @@ SetFreq(uint32_t freq)		// frequency [MHz] * 2^21
 
 	Si570Load();
 
-#endif
-
-	R.Freq = freq;
-
-#ifdef INCLUDE_ABPF
-	SetFilter();
 #endif
 }
 

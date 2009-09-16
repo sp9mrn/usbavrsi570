@@ -2,7 +2,7 @@
 **
 ** Project......: Firmware USB AVR Si570 controler.
 **
-** Platform.....: ATtiny45
+** Platform.....: ATtiny45  & Attiny85 @ 16.5 MHz
 **
 ** Licence......: This software is freely available for non-commercial 
 **                use - i.e. for research and experimentation only!
@@ -11,7 +11,7 @@
 **
 ** Programmer...: F.W. Krom, PE0FKO.
 **                Thanks to Tom Baier DG8SAQ for the initial program.
-**                Thanks to Alex Lee for the command 0x17 description.
+**                Thanks to Alex Lee and Loftur Jónasson for command extentions.
 ** 
 ** Description..: Control the Si570 Freq. PLL chip over the USB port.
 **
@@ -42,6 +42,11 @@
 **                                  Move some static variables to register, smaller code size.
 **                                  Add support for the CW Key_2 in command 0x50 & 0x51.
 **                                  CW Key always return open if ABPF is enabled (command 0x50 & 0x51)
+**               V15.11 27/07/2009: BUG in the CalcFreqMulAdd() with a negative subtract value.
+**								  	Change the SetFreq() so that the filter table is set and 
+**								  	after it the subtract multiply is done! (changed in order)
+**								  	Changed the SetFreq() so that cmd 0x3a will return the requested
+**								  	freq and not the Si570 freq. 
 **
 **************************************************************************
 
@@ -57,6 +62,7 @@ V15.7		4090 bytes (99.9% Full)
 V15.8		3984 bytes (97.3% Full)
 V15.9		3984 bytes (97.3% Full)
 V15.10		4018 bytes (98.1% Full)
+V15.11		4094 bytes (100.% Full)
 
 
 Fuse bit information:
@@ -600,7 +606,9 @@ Code sample:
 
 Command 0x3A:
 -------------
-Return actual frequency of the device.
+Return requested frequency of the device. It is not always the Si570 running frequency
+because the running frequency will be calculated with the offset subtract and multiply
+from the requested frequency.
 The frequency is formatted in MHz as a 11.21 bits value.
 
 Parameters:
