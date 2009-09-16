@@ -18,11 +18,7 @@
 //**                Changed faster and precise code to program the Si570 device.
 //**
 //** History......: V15.1 02/12/2008: First release of PE0FKO.
-//**                V15.2 19/12/2008: Change the Si570 code.
-//**                V15.3 02/01/2009: Add Automatich smooth tune.
-//**                V15.4 06/01/2009: Add Automatic Band Pass Filter Selection.
-//**                V15.5 14/01/2009: Add the Smooth tune and band pass filter 
-//**                                  to the "Set freq by Si570 registers" command.
+//**                Check the main.c file
 //**
 //**************************************************************************
 
@@ -38,30 +34,30 @@ SetFilter(void)
 		sint32_t Freq;
 		Freq.dw = R.Freq;			// Freq.w1 is 11.5bits
 
-		USR_DDR |= USR_P1;
-		USR_DDR |= USR_P2;
+		bit_1(IO_DDR, IO_P1);
+		bit_1(IO_DDR, IO_P2);
 
-		if (Freq.w1 < R.FilterCrossOver[0].word)
+		if (Freq.w1.w < R.FilterCrossOver[0].w)
 		{
-			USR_PORT &= ~USR_P1;
-			USR_PORT &= ~USR_P2;
+			bit_0(IO_PORT, IO_P1);
+			bit_0(IO_PORT, IO_P2);
 		}
 		else 
-		if (Freq.w1 < R.FilterCrossOver[1].word)
+		if (Freq.w1.w < R.FilterCrossOver[1].w)
 		{
-			USR_PORT |=  USR_P1;
-			USR_PORT &= ~USR_P2;
+			bit_1(IO_PORT, IO_P1);
+			bit_0(IO_PORT, IO_P2);
 		}
 		else 
-		if (Freq.w1 < R.FilterCrossOver[2].word)
+		if (Freq.w1.w < R.FilterCrossOver[2].w)
 		{
-			USR_PORT &= ~USR_P1;
-			USR_PORT |=  USR_P2;
+			bit_0(IO_PORT, IO_P1);
+			bit_1(IO_PORT, IO_P2);
 		}
 		else 
 		{
-			USR_PORT |= USR_P1;
-			USR_PORT |= USR_P2;
+			bit_1(IO_PORT, IO_P1);
+			bit_1(IO_PORT, IO_P2);
 		}
 	}
 }

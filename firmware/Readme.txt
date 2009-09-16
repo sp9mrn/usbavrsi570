@@ -23,6 +23,12 @@
 **                V15.6 17/01/2009: Bug fix, no connection on boot from PC.
 **                                  Used a FreqSmooth so the returned freq is
 **                                  the real freq and not the smooth center freq.
+**                V15.7 22/01/2009: Source change. Upgrade ObDev to 20081022.
+**                                  FreqSmoothTune variable removed from eeprom.
+**                                  Test errors in i2c code changed. 
+**                                  Add cmd 0x00, return firmware version number.
+**                                  Add cmd 0x20, Write Si570 register
+**                                  Add cmd 0x0F, Reset by Watchdog
 **
 **************************************************************************
 
@@ -34,6 +40,8 @@
 * V15.4		3918 bytes (95.7% Full)
 * V15.5		4044 bytes (98.7% Full)
 * V15.6		4072 bytes (99.4% Full)
+* V15.7		4090 bytes (99.9% Full)
+
 
 * Modifications by Fred Krom, PE0FKO at Nov 2008
 * - Hang on no pull up of SCL line i2c to Si570 (or power down of Si590 in SR-V90)
@@ -59,31 +67,53 @@
 Implemented functions:
 ----------------------
 
-V15.5
-+---+---+---+---+-----------------------------------------------------
-|Cmd|SQA|FKO| IO| Function
-+---+---+---+---+-----------------------------------------------------
-| 1 | * | * | I | [DO NOT USE] set port directions
-| 2 | * | * | I | [DO NOT USE] read ports
-| 3 | * | * | I | [DO NOT USE] read port states 
-| 4 | * | * | I | [DO NOT USE] set ports
-| 15|   | * | I | Set IO port with mask and data bytes, and perform cmd 0x16
-| 16|   | * | I | Return the I/O pin value
-| 17|   | * | I | Read the Filter cross over points and set one point
-| 30| * | * | O | Set frequency by register and load Si570
-| 32| * | * | O | Set frequency by value and load Si570
-| 33| * | * | O | write new crystal frequency to EEPROM and use it.
-| 34|   | * | O | Write new startup frequency to eeprom
-| 35|   | * | O | Write new smooth tune to eeprom and use it.
-| 3A|   | * | I | Return running frequency
-| 3B|   | * | I | Return smooth tune ppm value
-| 3C|   | * | I | Return the startup frequency
-| 3D|   | * | I | Return the XTal frequency
-| 3E| * | * | I | read out calculated frequency control registers
-| 3F| * | * | I | [DEBUG] SI570: read out frequency control registers
-| 41| * | * | I | Set the new i2c address! (pe0fko: function changed)
-| 50| * | * | I | [DO NOT USE] set USR_P1 and get cw-key status
-| 51| * | * | I | [DO NOT USE] read SDA and cw key level simultaneously
+V15.7
++----+---+---+---+-----------------------------------------------------
+|Cmd |SQA|FKO| IO| Function
++0x--+---+---+---+-----------------------------------------------------
+| 00 | * |   | I | Echo value variable
+| 00 |   | * | I | Get Firmware version number
+| 01 | * | * | I | [DO NOT USE] set port directions
+| 02 | * | * | I | [DO NOT USE] read ports
+| 03 | * | * | I | [DO NOT USE] read port states 
+| 04 | * | * | I | [DO NOT USE] set ports
+| 05 | * |   | I | [DO NOT USE] send I2C start sequence
+| 06 | * |   | I | [DO NOT USE] send I2C stop sequence
+| 07 | * |   | I | [DO NOT USE] send byte to I2C
+| 08 | * |   | I | [DO NOT USE] send word to I2C
+| 09 | * |   | I | [DO NOT USE] send dword to I2C
+| 0A | * |   | I | [DO NOT USE] send word to I2C with start and stop sequence
+| 0B | * |   | I | [DO NOT USE] receive word from I2C with start and stop sequence
+| 0C | * |   | I | [DO NOT USE] modify I2C clock
+| 0D |   |   | I | [DO NOT USE] read OSCCAL to "value"
+| 0E |   |   | I | [DO NOT USE] Write "value" to OSCCAL
+| 0F | * | * | I | [DO NOT USE] Reset by Watchdog
+| 10 | * |   | I | [DO NOT USE] EEPROM write byte value=address, index=data
+| 11 | * |   | I | [DO NOT USE] EEPROM read byte "value"=address
+| 13 |   |   | I | [DO NOT USE] return usb device address
+| 15 |   | * | I | Set IO port with mask and data bytes, and perform cmd 0x16
+| 16 |   | * | I | Return the I/O pin value
+| 17 |   | * | I | Read the Filter cross over points and set one point
+| 20 | * | * | I | Write byte to Si570 register
+| 21 | * |   | I | [DO NOT USE] SI570: read byte to register index (Use command 0x3F)
+| 22 | * |   | I | [DO NOT USE] SI570: freeze NCO (Use command 0x20)
+| 23 | * |   | I | [DO NOT USE] SI570: unfreeze NCO (Use command 0x20)
+| 30 | * | * | O | Set frequency by register and load Si570
+| 32 | * | * | O | Set frequency by value and load Si570
+| 33 | * | * | O | write new crystal frequency to EEPROM and use it.
+| 34 |   | * | O | Write new startup frequency to eeprom
+| 35 |   | * | O | Write new smooth tune to eeprom and use it.
+| 3A |   | * | I | Return running frequency
+| 3B |   | * | I | Return smooth tune ppm value
+| 3C |   | * | I | Return the startup frequency
+| 3D |   | * | I | Return the XTal frequency
+| 3E |   |   | I | [DEBUG] read out calculated frequency control registers
+| 3F | * | * | I | Read out frequency control registers
+| 40 | * | * | I | Return I2C transmission error status
+| 41 | * |   | I | [DO NOT USE] set/reset init freq status
+| 41 |   | * | I | Set the new i2c address.
+| 50 | * | * | I | [DO NOT USE] set USR_P1 and get cw-key status
+| 51 | * | * | I | [DO NOT USE] read SDA and cw key level simultaneously
 
 
 Commands:
@@ -111,6 +141,37 @@ Open the device with usb_open(...) with the VID & PID to get a device handle.
     size:    length in bytes of the "bytes" array.
 
 
+In case of a unknow command the firmware will return a 1 (one) if there is a bytes array specified it 
+returns the byte 255.
+
+
+Command 0x00:
+-------------
+This call will return the version number of the firmware. The high byte is the version major and the
+low byte the version minor number.
+
+It is a bid tricky for the previous versions because they used a "word echo command" on command 0x00.
+If the call will be done with the "value" parameter is set to 0x0E00 it will return version 14.0 for the
+original DG8SAQ software. (Also my previous software will return the version 14.0, the owner had to
+upgrade or not use it). There is also a other way to check the type of software, use the USB Version 
+string for that.
+
+Code sample:
+    uint16_t version;
+    r = usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN
+                    0x00, 0x0E00, 0, &version, sizeof(version), 1000);
+	// if the return value is 2, the variable version will give the major and minor
+	// version number in the high and low byte.
+
+Parameters:
+    requesttype:    USB_ENDPOINT_IN
+    request:         0x00
+    value:           0x0E00
+    index:           Don't care
+    bytes:           Version word variable
+    size:            2
+
+
 Command 0x15:
 -------------
 Set the I/O bits of the device. The SoftRock V9 only had two I/O lines, bit0 and bit1.
@@ -129,9 +190,9 @@ There are two values for every I/O bit, the data direction and data bits.
 It only works if automatic filter is disabled!
 
 Code sample:
-    uint8_t INP[2];
+    uint16_t INP;
     r = usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN
-                    0x15, 0x02, 0x02, INP, sizeof(INP), 1000);
+                    0x15, 0x02, 0x02, &INP, sizeof(INP), 1000);
     // Set P2 to output and one!
     // Use P1 as input, no internal pull up R enabled.
     // Read the input in array INP[], only bit0 and bit1 used by this hardware.
@@ -150,10 +211,10 @@ Command 0x16:
 Get the I/O values in the returned word, the SoftRock V9 only had two I/O lines, bit0 and bit1.
 
 Code sample:
-    uint8_t INP[2];
+    uint16_t INP;
     r = usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN
-                    0x16, 0, 0, INP, sizeof(INP), 1000);
-    // Read the input in array INP[], only bit0 and bit1 used by this hardware.
+                    0x16, 0, 0, &INP, sizeof(INP), 1000);
+    // Read the input word INP, only bit0 and bit1 used by SoftRock V9 hardware.
 
 Parameters:
     requesttype:    USB_ENDPOINT_IN
@@ -177,14 +238,19 @@ Code sample:
     FilterCrossOver[1] = 8.0 * 4.0 * (1<<5);
     FilterCrossOver[2] = 16. * 4.0 * (1<<5);
     FilterCrossOver[4] = true;        // Enable
+
     usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN
                     0x17, FilterCrossOver[0], 0, NULL, 0, 1000);
+
     usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN
                     0x17, FilterCrossOver[1], 1, NULL, 0, 1000);
+
     usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN
                     0x17, FilterCrossOver[2], 2, NULL, 0, 1000);
+
     usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN
                     0x17, FilterCrossOver[3], 3, FilterCrossOver, sizeof(FilterCrossOver), 1000);
+
     // Specify filter cross over point for a softrock that divide the LO by 4!
     // And read the points back from the device.
 
@@ -203,6 +269,28 @@ Parameters: Enable / disable the filter
     index:           3
     bytes:           Array of four 16bits integers for the filter points.
     size:            8
+
+
+Command 0x20:
+-------------
+Write one byte to a Si570 register. Return value is the i2c error boolean in the buffer array.
+
+Code sample:
+	// Si570 RECALL function
+	uint8_t i2cError;
+    r = usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN
+                    0x20, 0x55 | (135<<8), 0x01, &i2cError, 1, 1000);
+	if (r == 1 && i2cError == 0)
+		// OK
+
+Parameters:
+    requesttype:    USB_ENDPOINT_IN
+    request:         0x20
+    value:           I2C Address low byte (only for the DG8SAQ firmware)
+                     Si570 register high byte
+    index:           Register value low byte
+    bytes:           NULL
+    size:            0
 
 
 Command 0x30 & 0x31:
@@ -416,16 +504,16 @@ Code sample:
         dFreqXtal = (double)iFreqXtal / (1UL<<24);
 
 
-Command 0x3E:
+Command 0x3F:
 -------------
-Return the calculated Si570 frequency control registers.
-Debug only.
+Return the Si570 frequency control registers (reg 7 .. 12). If there are I2C errors
+the return length is 0.
 
 Default:    None
 
 Parameters:
     requesttype:     USB_ENDPOINT_IN
-    request:         0x3E
+    request:         0x3F
     value:           Don't care
     index:           Don't care
     bytes:           pointer 6 byte register array
@@ -447,4 +535,5 @@ Parameters:
     index:           0
     bytes:           NULL
     size:            0
+
 

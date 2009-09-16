@@ -23,6 +23,11 @@
 //**                V15.6 17/01/2009: Bug fix, no connection on boot from PC.
 //**                                  Used a FreqSmooth so the returned freq is
 //**                                  the real freq and not the smooth center freq.
+//**                V15.7 22/01/2009: Source change. Upgrade ObDev to 20081022.
+//**                                  FreqSmoothTune variable removed from eeprom.
+//**                                  Test errors in i2c code changed. 
+//**                                  Add cmd 0x00, return firmware version number.
+//**                                  Add cmd 0x20, Write Si570 register
 //**
 //**************************************************************************
 //
@@ -87,7 +92,7 @@ static	EEMEM	var_t		E;					// Variables in Eeprom
 				var_t		R;					// Variables in Ram
 
 				Si570_t		Si570_Data;			// Si570 register values
-				sint32_t	replyBuf[2];		// USB Reply buffer
+				sint16_t	replyBuf[4];		// USB Reply buffer
 static			uint8_t		command;			// usbFunctionWrite command
 
 EMPTY_INTERRUPT( __vector_default );			// Redirect all unused interrupts to reti
@@ -136,8 +141,8 @@ uchar usbFunctionWrite(uchar *data, uchar len) //sends len bytes to SI570
 	case 0x35:							// Write new smooth tune to eeprom and use it.
 		if (len >= 2) 
 		{
-			R.Si570_PPM = *(uint16_t*)data;
-			eeprom_write_block(&R.Si570_PPM, &E.Si570_PPM, sizeof(E.Si570_PPM));
+			R.SmoothTunePPM = *(uint16_t*)data;
+			eeprom_write_block(&R.SmoothTunePPM, &E.SmoothTunePPM, sizeof(E.SmoothTunePPM));
 		}
 		break;
 #endif
@@ -154,48 +159,56 @@ usbFunctionSetup(uchar data[8])
 
 	switch(rq->bRequest)
 	{
+	case 0:					       				// Return software version number
+		replyBuf[0].w = (VERSION_MAJOR<<8)|(VERSION_MINOR);
+		return 2;
+
 #ifdef INCLUDE_NOT_USE
 //	case 0:					       				// ECHO value
-//		replyBuf[0].w0 = rq->wValue.word;		// rq->bRequest identical data[1]!
+//		replyBuf[0].w = rq->wValue.word;		// rq->bRequest identical data[1]!
 //		return 2;
 
 	case 1:					       				// set port directions
-		USR_DDR = data[2] & 
+		IO_DDR = data[2] & 
 		 ~((1 << USB_CFG_DMINUS_BIT) 
-		 | (1 << USB_CFG_DPLUS_BIT));		   // protect USB interface
+		 | (1 << USB_CFG_DPLUS_BIT));			// protect USB interface
 		return 0;
 
 	case 2:					       				// read ports (pe0fko changed)
-		replyBuf[0].b0 = USR_PIN;
+		replyBuf[0].b0 = IO_PIN;
 		return sizeof(uint8_t);
 
 	case 3:       								// read port states 
-		replyBuf[0].b0 = USR_PORT;
+		replyBuf[0].b0 = IO_PORT;
 		return sizeof(uint8_t);
 
 	case 4:    					   				// set ports 
-		USR_PORT = data[2] & 
+		IO_PORT = data[2] & 
 		 ~((1 << USB_CFG_DMINUS_BIT) 
 		 | (1 << USB_CFG_DPLUS_BIT));			// protect USB interface
 		return 0;
 #endif
 
+	case 0x0f:					       			// Watchdog reset
+		while(true) ;
+
 	case 0x15:									// Set IO port with mask and data bytes
 #ifdef INCLUDE_ABPF
 		if (!FilterCrossOverOn)
 #endif
-		{
-			uint8_t msk,dat;					// Only 2 I/O pins in this hardware
-			msk = (rq->wValue.bytes[0]<<4) & 0x30;	// Mask word (here only byte used)
-			dat = (rq->wIndex.bytes[0]<<4) & 0x30;	// Data word (here only byte used)
-			USR_DDR  = (USR_DDR & ~0x30) | msk;
-			USR_PORT = (USR_PORT & ~msk) | dat;
+		{	// SoftRock V9 only had 2 I/O pins from tiny45 available.
+			uint8_t msk,dat;		
+			msk = (rq->wValue.bytes[0] << IO_BIT_START) & (IO_BIT_MASK << IO_BIT_START);
+			dat = (rq->wIndex.bytes[0] << IO_BIT_START) & (IO_BIT_MASK << IO_BIT_START);
+			IO_DDR  = (IO_DDR & ~(IO_BIT_MASK << IO_BIT_START)) | msk;
+			IO_PORT = (IO_PORT & ~msk) | dat;
 		}
-		replyBuf[0].w0 = (USR_PIN>>4) & 0x03;	// Return low byte I/O pin's
+		// Return I/O pin's
+		replyBuf[0].w = (IO_PIN>>IO_BIT_START) & IO_BIT_MASK;
         return sizeof(uint16_t);
 
 	case 0x16:					       			// Read I/O bits
-		replyBuf[0].w0 = (USR_PIN>>4) & 0x03;	// Return low byte I/O pin's
+		replyBuf[0].w = (IO_PIN>>IO_BIT_START) & IO_BIT_MASK;
         return sizeof(uint16_t);
 
 #ifdef INCLUDE_ABPF
@@ -205,17 +218,25 @@ usbFunctionSetup(uchar data[8])
 
 			if (index < 4)
 			{
-				R.FilterCrossOver[index].word = rq->wValue.word;
+				R.FilterCrossOver[index].w = rq->wValue.word;
 
-				eeprom_write_block(&R.FilterCrossOver[index].word, 
-						&E.FilterCrossOver[index].word, 
-						sizeof(E.FilterCrossOver[0].word));
+				eeprom_write_block(&R.FilterCrossOver[index].w, 
+						&E.FilterCrossOver[index].w, 
+						sizeof(E.FilterCrossOver[0].w));
 			}
 
 			usbMsgPtr = (uint8_t*)&R.FilterCrossOver;
 		}
 		return 4 * sizeof(uint16_t);
 #endif
+
+	case 0x20:									// [DEBUG] Write byte to Si570 register
+		Si570CmdReg(rq->wValue.bytes[1], rq->wIndex.bytes[0]);
+#ifdef INCLUDE_SMOOTH
+		FreqSmoothTune = 0;						// Next SetFreq call no smoodtune
+#endif
+		replyBuf[0].b0 = I2CErrors;				// return I2C transmission error status
+        return 1;
 
 	case 0x30:							      	// Set frequnecy by register and load Si570
 	case 0x31:									// Write only Si570 registers
@@ -232,45 +253,49 @@ usbFunctionSetup(uchar data[8])
 
 #ifdef INCLUDE_SMOOTH
 	case 0x3b:									// Return smooth tune ppm value
-		usbMsgPtr = (uint8_t*)&R.Si570_PPM;
+		usbMsgPtr = (uint8_t*)&R.SmoothTunePPM;
         return sizeof(uint16_t);
 #endif
 
 	case 0x3c:									// Return the startup frequency
-		eeprom_read_block(&replyBuf[0].dw, &E.Freq, sizeof(E.Freq));
+		eeprom_read_block(replyBuf, &E.Freq, sizeof(E.Freq));
 		return sizeof(uint32_t);
 
 	case 0x3d:									// Return the XTal frequnecy
 		usbMsgPtr = (uint8_t*)&R.FreqXtal;
         return sizeof(uint32_t);
 
-	case 0x3e:   						    	// read out calculated frequency control registers
-		usbMsgPtr = (uint8_t*)&Si570_Data;
-		return sizeof(Si570_Data);
+//	case 0x3e:   						    	// read out calculated frequency control registers
+//		usbMsgPtr = (uint8_t*)&Si570_Data;
+//		return sizeof(Si570_t);
 
 	case 0x3f:   				    			// read out chip frequency control registers
-		GetRegFromSi570();
-		usbMsgPtr = (uint8_t*)&Si570_Data;
-        return sizeof(Si570_Data);
+		return GetRegFromSi570();				// read all registers in one block to replyBuf[]
+
+#ifdef INCLUDE_I2C
+	case 0x40:      							// return I2C transmission error status
+		replyBuf[0].b0 = I2CErrors;
+		return sizeof(uint8_t);
+#endif
 
 	case 0x41:      						 	// Set the new i2c address or factory default (pe0fko: function changed)
-		eeprom_write_byte(&E.SI570_I2cAdr, rq->wValue.bytes[0]);
+		eeprom_write_byte(&E.ChipCrtlData, rq->wValue.bytes[0]);
 		if (rq->wValue.bytes[0] != 0xFF)
-			R.SI570_I2cAdr = rq->wValue.bytes[0];
+			R.ChipCrtlData = rq->wValue.bytes[0];
         return 0;
 
 #ifdef INCLUDE_NOT_USE
-	case 0x50:   						    	// set USR_P1 and get cw-key status
+	case 0x50:   						    	// set IO_P1 and read CW key level
 	    if (rq->wValue.bytes[0] == 0)
-			USR_PORT &= ~USR_P1;
+			bit_0(IO_PORT, IO_P1);
 		else
-			USR_PORT |= USR_P1;
+			bit_1(IO_PORT, IO_P1);
 
-		replyBuf[0].b0 = USR_PIN & (USR_P2);
+		replyBuf[0].b0 = IO_PIN & _BV(IO_P2);
         return sizeof(uint8_t);
 
 	case 0x51:  						     	// read CW key level
-		replyBuf[0].b0 = USR_PIN & (USR_P2);
+		replyBuf[0].b0 = IO_PIN & _BV(IO_P2);
         return sizeof(uint8_t);
 #endif
 	}
@@ -291,8 +316,8 @@ dotInit3(void)
 	MCUSR = 0;
 	wdt_disable();
 
-	USR_DDR = USR_P1;	// All port pins inputs except USR_P1 switching output
-	USR_PORT = 0;		// Inp on startup, no pullups
+	IO_DDR = _BV(IO_P1);		// All port pins inputs except IO_P1 switching output
+	IO_PORT = 0;				// Inp on startup, no pullups
 }
 
 
@@ -306,23 +331,21 @@ main(void)
 	// Load the persistend data from eeprom
 	// If not initialized eeprom, define to the "factory defaults".
 	eeprom_read_block(&R, &E, sizeof(E));
-	if (R.SI570_I2cAdr == 0xFF)
+	if (R.ChipCrtlData == 0xFF)
 	{
 		R.RC_OSCCAL		= 0xFF;
-		R.SI570_I2cAdr	= 0x55;
+		R.ChipCrtlData	= DEVICE_I2C;
 		R.Freq			= DEVICE_STARTUP;
 		R.FreqXtal		= DEVICE_XTAL;
-
 #ifdef INCLUDE_SMOOTH
-		R.FreqSmooth	= 0;
-		R.Si570_PPM		= 3500;
+		R.SmoothTunePPM	= SMOOTH_PPM;
 #endif
 #ifdef INCLUDE_ABPF
 		// Default filter cross over frequnecy for softrock v9
-		R.FilterCrossOver[0].word =  4.0 * 4.0 * _2(5);
-		R.FilterCrossOver[1].word =  8.0 * 4.0 * _2(5);
-		R.FilterCrossOver[2].word = 16.0 * 4.0 * _2(5);
-		R.FilterCrossOver[3].word = true;
+		R.FilterCrossOver[0].w = FILTER_COP_0;
+		R.FilterCrossOver[1].w = FILTER_COP_1;
+		R.FilterCrossOver[2].w = FILTER_COP_2;
+		R.FilterCrossOver[3].w = FILTER_COP_3;
 #endif
 		eeprom_write_block(&R, &E, sizeof(E));
 	}
@@ -330,17 +353,14 @@ main(void)
 	if(R.RC_OSCCAL != 0xFF)
 		OSCCAL = R.RC_OSCCAL;
 
+	DeviceInit();
+
+	// Start USB enumeration
 	usbDeviceDisconnect();
-	_delay_ms(300);
+	_delay_ms(500);
 	usbDeviceConnect();
 
-	wdt_enable(WDTO_120MS);				// Watchdog 120ms
-
-#ifdef INCLUDE_SI570
-	SI570_online = false;
-#endif
-
-	DeviceInit();
+	wdt_enable(WDTO_250MS);				// Watchdog 250ms
 
 	usbInit();
 	sei();
@@ -373,4 +393,5 @@ d:/winavr-20081205/bin/../lib/gcc/avr/4.3.2/avr25\libgcc.a(_exit.o)
  * V15.4	3918 bytes (95.7% Full)
  * V15.5	4044 bytes (98.7% Full)
  * V15.6	4072 bytes (99.4% Full)
+ * V15.7	4090 bytes (99.9% Full)
  */
