@@ -15,11 +15,7 @@
 //** Description..: I2C Protocol, trying to simulate a open Collector output.
 //**
 //** History......: V15.1 02/12/2008: First release of PE0FKO.
-//**                V15.2 19/12/2008: Change the Si570 code.
-//**                V15.3 02/01/2009: Add Automatich smooth tune.
-//**                V15.4 06/01/2009: Add Automatic Band Pass Filter Selection.
-//**                V15.5 14/01/2009: Add the Smooth tune and band pass filter 
-//**                                  to the "Set freq by Si570 registers" command.
+//**                Check the main.c file
 //**
 //**************************************************************************
 
@@ -34,7 +30,7 @@
 #define I2C_SCL_LO			I2C_DDR |= SCL
 #define I2C_SCL_HI			I2C_DDR &= ~SCL
 
-#define	I2C_DELAY_uS		(1e6/I2C_BITRATE)
+#define	I2C_DELAY_uS		(1000.0 / I2C_KBITRATE)
 
 bool	I2CErrors;
 

@@ -24,7 +24,6 @@ d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_
 Allocating common symbols
 Common symbol       size              file
 
-SI570_online        0x1               DeviceSi570.o
 usbTxBuf            0xb               usbdrv.o
 I2CErrors           0x1               I2Copencollector.o
 Si570_Data          0x6               main.o
@@ -32,13 +31,14 @@ replyBuf            0x8               main.o
 usbDeviceAddr       0x1               usbdrv.o
 usbRxToken          0x1               usbdrv.o
 usbInputBufOffset   0x1               usbdrv.o
-R                   0x18              main.o
+R                   0x14              main.o
 usbMsgPtr           0x2               usbdrv.o
 usbRxLen            0x1               usbdrv.o
 usbNewDeviceAddr    0x1               usbdrv.o
 usbCurrentTok       0x1               usbdrv.o
 usbConfiguration    0x1               usbdrv.o
 usbRxBuf            0x16              usbdrv.o
+FreqSmoothTune      0x4               DeviceSi570.o
 
 Memory Configuration
 
@@ -157,7 +157,7 @@ LOAD d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a
 .rela.plt
  *(.rela.plt)
 
-.text           0x00000000      0xfe6
+.text           0x00000000      0xff8
  *(.vectors)
  .vectors       0x00000000       0x1e d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25/crttn45.o
                 0x00000000                __vectors
@@ -235,71 +235,72 @@ LOAD d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a
                 0x000000d6                __vector_8
                 0x000000d6                __vector_14
                 0x000000d6                __vector_10
- .text          0x000000d8      0x34c main.o
-                0x00000268                usbFunctionSetup
+ .text          0x000000d8      0x360 main.o
+                0x00000254                usbFunctionSetup
                 0x000000d8                __vector_default
                 0x000000da                main
-                0x000001c8                usbFunctionWrite
- .text          0x00000424      0x2fa usbdrvasm.o
-                0x0000047c                __vector_1
-                0x00000424                usbCrc16
-                0x0000044e                usbCrc16Append
-                0x00000456                usbMeasureFrameLength
- .text          0x0000071e       0x8e osccal.o
-                0x0000071e                calibrateOscillator
-                0x0000079a                usbEventResetReady
- .text          0x000007ac       0xfe I2Copencollector.o
-                0x00000824                I2CSendByte
-                0x000007ea                I2CSendStop
-                0x0000088a                I2CReceiveLastByte
-                0x0000086a                I2CReceiveByte
-                0x000007da                I2CSendStart
- .text          0x000008aa      0x22c usbdrv.o
-                0x000008b8                usbPoll
-                0x000008aa                usbInit
- .text          0x00000ad6       0xd4 FreqFromSi570.o
-                0x00000ad6                CalcFreqFromRegSi570
- .text          0x00000baa      0x324 DeviceSi570.o
-                0x00000cf4                SetFreq
-                0x00000c7e                GetRegFromSi570
-                0x00000ea8                DeviceInit
- .text          0x00000ece        0x0 DeviceAd9850.o
- .text          0x00000ece       0x5c OptionABPF.o
-                0x00000ece                SetFilter
- .text          0x00000f2a        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_mulhi3.o)
- .text          0x00000f2a        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_mulsi3.o)
- .text          0x00000f2a        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_udivmodhi4.o)
- .text          0x00000f2a        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_exit.o)
- .text          0x00000f2a        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_copy_data.o)
- .text          0x00000f2a        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_clear_bss.o)
- .text          0x00000f2a        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_rblk.1C1D1E.o)
- .text          0x00000f2a        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_wb.1C1D1E.o)
- .text          0x00000f2a        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_wblk.1C1D1E.o)
- .text          0x00000f2a        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_rb.1C1D1E.o)
-                0x00000f2a                . = ALIGN (0x2)
+                0x000001b4                usbFunctionWrite
+ .text          0x00000438      0x2fa usbdrvasm.o
+                0x00000490                __vector_1
+                0x00000438                usbCrc16
+                0x00000462                usbCrc16Append
+                0x0000046a                usbMeasureFrameLength
+ .text          0x00000732       0x8e osccal.o
+                0x00000732                calibrateOscillator
+                0x000007ae                usbEventResetReady
+ .text          0x000007c0       0xfe I2Copencollector.o
+                0x00000838                I2CSendByte
+                0x000007fe                I2CSendStop
+                0x0000089e                I2CReceiveLastByte
+                0x0000087e                I2CReceiveByte
+                0x000007ee                I2CSendStart
+ .text          0x000008be      0x22c usbdrv.o
+                0x000008cc                usbPoll
+                0x000008be                usbInit
+ .text          0x00000aea       0xd4 FreqFromSi570.o
+                0x00000aea                CalcFreqFromRegSi570
+ .text          0x00000bbe      0x322 DeviceSi570.o
+                0x00000d3a                SetFreq
+                0x00000cba                GetRegFromSi570
+                0x00000e98                DeviceInit
+                0x00000d26                Si570CmdReg
+ .text          0x00000ee0        0x0 DeviceAd9850.o
+ .text          0x00000ee0       0x5c OptionABPF.o
+                0x00000ee0                SetFilter
+ .text          0x00000f3c        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_mulhi3.o)
+ .text          0x00000f3c        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_mulsi3.o)
+ .text          0x00000f3c        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_udivmodhi4.o)
+ .text          0x00000f3c        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_exit.o)
+ .text          0x00000f3c        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_copy_data.o)
+ .text          0x00000f3c        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_clear_bss.o)
+ .text          0x00000f3c        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_rblk.1C1D1E.o)
+ .text          0x00000f3c        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_wb.1C1D1E.o)
+ .text          0x00000f3c        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_wblk.1C1D1E.o)
+ .text          0x00000f3c        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_rb.1C1D1E.o)
+                0x00000f3c                . = ALIGN (0x2)
  *(.text.*)
- .text.libgcc   0x00000f2a       0x24 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_mulhi3.o)
-                0x00000f2a                __mulhi3
- .text.libgcc   0x00000f4e       0x32 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_mulsi3.o)
-                0x00000f4e                __mulsi3
- .text.libgcc   0x00000f80       0x28 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_udivmodhi4.o)
-                0x00000f80                __udivmodhi4
- .text.libgcc   0x00000fa8        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_exit.o)
- .text.libgcc   0x00000fa8        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_copy_data.o)
- .text.libgcc   0x00000fa8        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_clear_bss.o)
- .text.eeprom   0x00000fa8        0xa d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_rblk.1C1D1E.o)
-                0x00000fa8                __eeprom_read_block_1C1D1E
- .text.eeprom   0x00000fb2       0x18 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_wb.1C1D1E.o)
-                0x00000fb2                __eeprom_write_byte_1C1D1E
- .text.eeprom   0x00000fca        0xa d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_wblk.1C1D1E.o)
-                0x00000fca                __eeprom_write_block_1C1D1E
- .text.eeprom   0x00000fd4       0x10 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_rb.1C1D1E.o)
-                0x00000fd4                __eeprom_read_byte_1C1D1E
-                0x00000fe4                . = ALIGN (0x2)
+ .text.libgcc   0x00000f3c       0x24 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_mulhi3.o)
+                0x00000f3c                __mulhi3
+ .text.libgcc   0x00000f60       0x32 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_mulsi3.o)
+                0x00000f60                __mulsi3
+ .text.libgcc   0x00000f92       0x28 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_udivmodhi4.o)
+                0x00000f92                __udivmodhi4
+ .text.libgcc   0x00000fba        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_exit.o)
+ .text.libgcc   0x00000fba        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_copy_data.o)
+ .text.libgcc   0x00000fba        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_clear_bss.o)
+ .text.eeprom   0x00000fba        0xa d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_rblk.1C1D1E.o)
+                0x00000fba                __eeprom_read_block_1C1D1E
+ .text.eeprom   0x00000fc4       0x18 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_wb.1C1D1E.o)
+                0x00000fc4                __eeprom_write_byte_1C1D1E
+ .text.eeprom   0x00000fdc        0xa d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_wblk.1C1D1E.o)
+                0x00000fdc                __eeprom_write_block_1C1D1E
+ .text.eeprom   0x00000fe6       0x10 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_rb.1C1D1E.o)
+                0x00000fe6                __eeprom_read_byte_1C1D1E
+                0x00000ff6                . = ALIGN (0x2)
  *(.fini9)
- .fini9         0x00000fe4        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_exit.o)
-                0x00000fe4                exit
-                0x00000fe4                _exit
+ .fini9         0x00000ff6        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_exit.o)
+                0x00000ff6                exit
+                0x00000ff6                _exit
  *(.fini9)
  *(.fini8)
  *(.fini8)
@@ -318,11 +319,11 @@ LOAD d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a
  *(.fini1)
  *(.fini1)
  *(.fini0)
- .fini0         0x00000fe4        0x2 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_exit.o)
+ .fini0         0x00000ff6        0x2 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_exit.o)
  *(.fini0)
-                0x00000fe6                _etext = .
+                0x00000ff8                _etext = .
 
-.data           0x00800060        0x2 load address 0x00000fe6
+.data           0x00800060        0x2 load address 0x00000ff8
                 0x00800060                PROVIDE (__data_start, .)
  *(.data)
  .data          0x00800060        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25/crttn45.o
@@ -354,7 +355,7 @@ LOAD d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a
                 0x00800062                _edata = .
                 0x00800062                PROVIDE (__data_end, .)
 
-.bss            0x00800062       0x59 load address 0x00000fe8
+.bss            0x00800062       0x59 load address 0x00000ffa
                 0x00800062                PROVIDE (__bss_start, .)
  *(.bss)
  .bss           0x00800062        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25/crttn45.o
@@ -364,43 +365,43 @@ LOAD d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a
  .bss           0x00800063        0x0 I2Copencollector.o
  .bss           0x00800063        0x2 usbdrv.o
  .bss           0x00800065        0x0 FreqFromSi570.o
- .bss           0x00800065        0x4 DeviceSi570.o
- .bss           0x00800069        0x0 DeviceAd9850.o
- .bss           0x00800069        0x0 OptionABPF.o
- .bss           0x00800069        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_mulhi3.o)
- .bss           0x00800069        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_mulsi3.o)
- .bss           0x00800069        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_udivmodhi4.o)
- .bss           0x00800069        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_exit.o)
- .bss           0x00800069        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_copy_data.o)
- .bss           0x00800069        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_clear_bss.o)
- .bss           0x00800069        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_rblk.1C1D1E.o)
- .bss           0x00800069        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_wb.1C1D1E.o)
- .bss           0x00800069        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_wblk.1C1D1E.o)
- .bss           0x00800069        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_rb.1C1D1E.o)
+ .bss           0x00800065        0x5 DeviceSi570.o
+ .bss           0x0080006a        0x0 DeviceAd9850.o
+ .bss           0x0080006a        0x0 OptionABPF.o
+ .bss           0x0080006a        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_mulhi3.o)
+ .bss           0x0080006a        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_mulsi3.o)
+ .bss           0x0080006a        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_udivmodhi4.o)
+ .bss           0x0080006a        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_exit.o)
+ .bss           0x0080006a        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_copy_data.o)
+ .bss           0x0080006a        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a(_clear_bss.o)
+ .bss           0x0080006a        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_rblk.1C1D1E.o)
+ .bss           0x0080006a        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_wb.1C1D1E.o)
+ .bss           0x0080006a        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_wblk.1C1D1E.o)
+ .bss           0x0080006a        0x0 d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/../../../../avr/lib/avr25\libc.a(ee_rb.1C1D1E.o)
  *(.bss*)
  *(COMMON)
- COMMON         0x00800069       0x26 main.o
-                0x00800069                Si570_Data
-                0x0080006f                replyBuf
-                0x00800077                R
- COMMON         0x0080008f        0x1 I2Copencollector.o
-                0x0080008f                I2CErrors
- COMMON         0x00800090       0x2a usbdrv.o
-                0x00800090                usbTxBuf
-                0x0080009b                usbDeviceAddr
-                0x0080009c                usbRxToken
-                0x0080009d                usbInputBufOffset
-                0x0080009e                usbMsgPtr
-                0x008000a0                usbRxLen
-                0x008000a1                usbNewDeviceAddr
-                0x008000a2                usbCurrentTok
-                0x008000a3                usbConfiguration
-                0x008000a4                usbRxBuf
- COMMON         0x008000ba        0x1 DeviceSi570.o
-                0x008000ba                SI570_online
+ COMMON         0x0080006a       0x22 main.o
+                0x0080006a                Si570_Data
+                0x00800070                replyBuf
+                0x00800078                R
+ COMMON         0x0080008c        0x1 I2Copencollector.o
+                0x0080008c                I2CErrors
+ COMMON         0x0080008d       0x2a usbdrv.o
+                0x0080008d                usbTxBuf
+                0x00800098                usbDeviceAddr
+                0x00800099                usbRxToken
+                0x0080009a                usbInputBufOffset
+                0x0080009b                usbMsgPtr
+                0x0080009d                usbRxLen
+                0x0080009e                usbNewDeviceAddr
+                0x0080009f                usbCurrentTok
+                0x008000a0                usbConfiguration
+                0x008000a1                usbRxBuf
+ COMMON         0x008000b7        0x4 DeviceSi570.o
+                0x008000b7                FreqSmoothTune
                 0x008000bb                PROVIDE (__bss_end, .)
-                0x00000fe6                __data_load_start = LOADADDR (.data)
-                0x00000fe8                __data_load_end = (__data_load_start + SIZEOF (.data))
+                0x00000ff8                __data_load_start = LOADADDR (.data)
+                0x00000ffa                __data_load_end = (__data_load_start + SIZEOF (.data))
 
 .noinit         0x008000bb        0x0
                 0x008000bb                PROVIDE (__noinit_start, .)
@@ -409,10 +410,10 @@ LOAD d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a
                 0x008000bb                _end = .
                 0x008000bb                PROVIDE (__heap_start, .)
 
-.eeprom         0x00810000       0x18
+.eeprom         0x00810000       0x14
  *(.eeprom*)
- .eeprom        0x00810000       0x18 main.o
-                0x00810018                __eeprom_end = .
+ .eeprom        0x00810000       0x14 main.o
+                0x00810014                __eeprom_end = .
 
 .fuse
  *(.fuse)
@@ -479,7 +480,7 @@ LOAD d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a
                 0x000000c8       0x20 OptionABPF.o
 
 .debug_pubnames
-                0x00000000      0x371
+                0x00000000      0x383
  *(.debug_pubnames)
  .debug_pubnames
                 0x00000000       0x89 main.o
@@ -492,82 +493,82 @@ LOAD d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a
  .debug_pubnames
                 0x000002d4       0x2b FreqFromSi570.o
  .debug_pubnames
-                0x000002ff       0x52 DeviceSi570.o
+                0x000002ff       0x64 DeviceSi570.o
  .debug_pubnames
-                0x00000351       0x20 OptionABPF.o
+                0x00000363       0x20 OptionABPF.o
 
-.debug_info     0x00000000     0x1d9e
+.debug_info     0x00000000     0x1cee
  *(.debug_info)
- .debug_info    0x00000000      0x7bc main.o
- .debug_info    0x000007bc      0x140 osccal.o
- .debug_info    0x000008fc      0x2d9 I2Copencollector.o
- .debug_info    0x00000bd5      0x752 usbdrv.o
- .debug_info    0x00001327      0x225 FreqFromSi570.o
- .debug_info    0x0000154c      0x5b2 DeviceSi570.o
- .debug_info    0x00001afe       0x64 DeviceAd9850.o
- .debug_info    0x00001b62      0x23c OptionABPF.o
+ .debug_info    0x00000000      0x785 main.o
+ .debug_info    0x00000785      0x140 osccal.o
+ .debug_info    0x000008c5      0x2d9 I2Copencollector.o
+ .debug_info    0x00000b9e      0x752 usbdrv.o
+ .debug_info    0x000012f0      0x21a FreqFromSi570.o
+ .debug_info    0x0000150a      0x5bb DeviceSi570.o
+ .debug_info    0x00001ac5       0x64 DeviceAd9850.o
+ .debug_info    0x00001b29      0x1c5 OptionABPF.o
  *(.gnu.linkonce.wi.*)
 
-.debug_abbrev   0x00000000      0xcbc
+.debug_abbrev   0x00000000      0xc95
  *(.debug_abbrev)
- .debug_abbrev  0x00000000      0x339 main.o
- .debug_abbrev  0x00000339       0xe5 osccal.o
- .debug_abbrev  0x0000041e      0x18d I2Copencollector.o
- .debug_abbrev  0x000005ab      0x227 usbdrv.o
- .debug_abbrev  0x000007d2      0x10f FreqFromSi570.o
- .debug_abbrev  0x000008e1      0x298 DeviceSi570.o
- .debug_abbrev  0x00000b79       0x33 DeviceAd9850.o
- .debug_abbrev  0x00000bac      0x110 OptionABPF.o
+ .debug_abbrev  0x00000000      0x330 main.o
+ .debug_abbrev  0x00000330       0xe5 osccal.o
+ .debug_abbrev  0x00000415      0x18d I2Copencollector.o
+ .debug_abbrev  0x000005a2      0x227 usbdrv.o
+ .debug_abbrev  0x000007c9      0x116 FreqFromSi570.o
+ .debug_abbrev  0x000008df      0x2a5 DeviceSi570.o
+ .debug_abbrev  0x00000b84       0x33 DeviceAd9850.o
+ .debug_abbrev  0x00000bb7       0xde OptionABPF.o
 
-.debug_line     0x00000000     0x11e6
+.debug_line     0x00000000     0x10a0
  *(.debug_line)
- .debug_line    0x00000000      0x49e main.o
- .debug_line    0x0000049e      0x14e osccal.o
- .debug_line    0x000005ec      0x25b I2Copencollector.o
- .debug_line    0x00000847      0x34a usbdrv.o
- .debug_line    0x00000b91      0x139 FreqFromSi570.o
- .debug_line    0x00000cca      0x37d DeviceSi570.o
- .debug_line    0x00001047       0x41 DeviceAd9850.o
- .debug_line    0x00001088      0x15e OptionABPF.o
+ .debug_line    0x00000000      0x4ac main.o
+ .debug_line    0x000004ac      0x14e osccal.o
+ .debug_line    0x000005fa      0x25b I2Copencollector.o
+ .debug_line    0x00000855      0x34a usbdrv.o
+ .debug_line    0x00000b9f       0xe3 FreqFromSi570.o
+ .debug_line    0x00000c82      0x2d5 DeviceSi570.o
+ .debug_line    0x00000f57       0x41 DeviceAd9850.o
+ .debug_line    0x00000f98      0x108 OptionABPF.o
 
-.debug_frame    0x00000000      0x210
+.debug_frame    0x00000000      0x230
  *(.debug_frame)
  .debug_frame   0x00000000       0x60 main.o
  .debug_frame   0x00000060       0x30 osccal.o
  .debug_frame   0x00000090       0xb0 I2Copencollector.o
  .debug_frame   0x00000140       0x30 usbdrv.o
  .debug_frame   0x00000170       0x20 FreqFromSi570.o
- .debug_frame   0x00000190       0x60 DeviceSi570.o
- .debug_frame   0x000001f0       0x20 OptionABPF.o
+ .debug_frame   0x00000190       0x80 DeviceSi570.o
+ .debug_frame   0x00000210       0x20 OptionABPF.o
 
-.debug_str      0x00000000      0x7a1
+.debug_str      0x00000000      0x7d8
  *(.debug_str)
- .debug_str     0x00000000      0x2a8 main.o
-                                0x2f7 (size before relaxing)
- .debug_str     0x000002a8       0x67 osccal.o
-                                0x152 (size before relaxing)
- .debug_str     0x0000030f       0xb4 I2Copencollector.o
-                                0x1cb (size before relaxing)
- .debug_str     0x000003c3      0x274 usbdrv.o
-                                0x3c7 (size before relaxing)
- .debug_str     0x00000637       0x28 FreqFromSi570.o
-                                0x17c (size before relaxing)
- .debug_str     0x0000065f      0x116 DeviceSi570.o
-                                0x2c7 (size before relaxing)
- .debug_str     0x00000775       0x12 DeviceAd9850.o
-                                 0xd8 (size before relaxing)
- .debug_str     0x00000787       0x1a OptionABPF.o
-                                0x170 (size before relaxing)
+ .debug_str     0x00000000      0x2c3 main.o
+                                0x312 (size before relaxing)
+ .debug_str     0x000002c3       0x67 osccal.o
+                                0x15f (size before relaxing)
+ .debug_str     0x0000032a       0xaa I2Copencollector.o
+                                0x1d8 (size before relaxing)
+ .debug_str     0x000003d4      0x274 usbdrv.o
+                                0x3d4 (size before relaxing)
+ .debug_str     0x00000648       0x28 FreqFromSi570.o
+                                0x16e (size before relaxing)
+ .debug_str     0x00000670      0x13c DeviceSi570.o
+                                0x2e6 (size before relaxing)
+ .debug_str     0x000007ac       0x12 DeviceAd9850.o
+                                 0xe5 (size before relaxing)
+ .debug_str     0x000007be       0x1a OptionABPF.o
+                                0x162 (size before relaxing)
 
-.debug_loc      0x00000000      0x7a3
+.debug_loc      0x00000000      0x7e2
  *(.debug_loc)
- .debug_loc     0x00000000      0x235 main.o
- .debug_loc     0x00000235       0x7c osccal.o
- .debug_loc     0x000002b1       0x44 I2Copencollector.o
- .debug_loc     0x000002f5      0x2e4 usbdrv.o
- .debug_loc     0x000005d9       0x8a FreqFromSi570.o
- .debug_loc     0x00000663      0x122 DeviceSi570.o
- .debug_loc     0x00000785       0x1e OptionABPF.o
+ .debug_loc     0x00000000      0x225 main.o
+ .debug_loc     0x00000225       0x7c osccal.o
+ .debug_loc     0x000002a1       0x44 I2Copencollector.o
+ .debug_loc     0x000002e5      0x2e4 usbdrv.o
+ .debug_loc     0x000005c9       0x8a FreqFromSi570.o
+ .debug_loc     0x00000653      0x171 DeviceSi570.o
+ .debug_loc     0x000007c4       0x1e OptionABPF.o
 
 .debug_macinfo
  *(.debug_macinfo)

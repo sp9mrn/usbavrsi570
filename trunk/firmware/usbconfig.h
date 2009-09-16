@@ -14,14 +14,7 @@
 //** Description..: Changed AVR-USB usbconfig-prototype.h file
 //**
 //** History......: V15.1 02/12/2008: First release of PE0FKO.
-//**                V15.2 19/12/2008: Change the Si570 code.
-//**                V15.3 02/01/2009: Add Automatich smooth tune.
-//**                V15.4 06/01/2009: Add Automatic Band Pass Filter Selection.
-//**                V15.5 14/01/2009: Add the Smooth tune and band pass filter 
-//**                                  to the "Set freq by Si570 registers" command.
-//**                V15.6 17/01/2009: Bug fix, no connection on boot from PC.
-//**                                  Used a FreqSmooth so the returned freq is
-//**                                  the real freq and not the smooth center freq.
+//**                Check the main.c file
 //**
 //**************************************************************************
 
@@ -65,9 +58,11 @@ extern void usbEventResetReady(void);
 
 
 
-/* ------------------------ usbconfig-prototype.h ------------------------- */
+// ------------------------ usbconfig-prototype.h -------------------------
 // Original version of the usbconfig-prototype.h file.
 // Only the above #defines are commented out to prevent some compile warnings.
+// Version: usbdrv-20081022
+// ------------------------ usbconfig-prototype.h -------------------------
 
 /* Name: usbconfig.h
  * Project: AVR USB driver
