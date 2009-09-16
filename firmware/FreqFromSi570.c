@@ -23,6 +23,7 @@
 
 #include "main.h"
 
+static
 void
 CalcFreqFromRegSi570(uint8_t* reg)
 {
@@ -129,8 +130,7 @@ CalcFreqFromRegSi570(uint8_t* reg)
 	// Input operand list
 	//-------------------
 //	: "r" (R.FreqXtal)		// %10		FreqXtal
-//	: "r" (F_114_285)		// %10		114.285 * _2(24)
-	: "r" (DEFAULT_XTAL)	// %10		114.285 * _2(24)
+	: "r" (DEVICE_XTAL)		// %10		114.285 * _2(24)
 	, "0" (A0)				// 
 	, "1" (A1)				// 
 	, "2" (A2)				// 

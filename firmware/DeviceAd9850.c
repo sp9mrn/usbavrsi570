@@ -22,6 +22,8 @@
 
 #ifdef INCLUDE_AD9850
 
+#include "CalcVFO.c"						// Include code is small size
+
 #error "****** AD9850 Code not ready! ******"
 
 static void
@@ -149,6 +151,10 @@ AD9850_LoadFreq(uint32_t freq)
 void
 SetFreq(uint32_t freq)		// frequency [MHz] * 2^21
 {
+#ifdef INCLUDE_FREQ_SM
+	freq = CalcFreqMulAdd(freq);
+#endif
+
 	R.Freq = freq;
 
 	AD9850_LoadFreq(freq);

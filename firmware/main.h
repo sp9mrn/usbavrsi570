@@ -22,9 +22,9 @@
 #ifndef _PE0FKO_MAIN_H_
 #define _PE0FKO_MAIN_H_ 1
 
-#include <stdbool.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #include <avr/io.h>
 #include <avr/wdt.h>
 #include <avr/eeprom.h>
@@ -33,40 +33,35 @@
 #include <util/delay.h>
 #include "usbdrv.h"
 
-#define	VERSION_MAJOR	15
-#define	VERSION_MINOR	9
 
-#define	DEVICE_STARTUP	( 59139686 )			// 4.0 * 7.050 * _2(21)
-#define	DEFAULT_XTAL	(1917384130)			// 114.285 * _2(24)
-#define	FILTER_COP_0	(  4.0 * 4.0 * _2(5) )
-#define	FILTER_COP_1	(  8.0 * 4.0 * _2(5) )
-#define	FILTER_COP_2	( 16.0 * 4.0 * _2(5) )
-#define	FILTER_COP_3	( true )
-#define	SMOOTH_PPM		( 3500 )
+#define	VERSION_MAJOR	15
+#define	VERSION_MINOR	10
 
 
 // Switch's to set the code needed
-#define	INCLUDE_NOT_USE_1					// Compatibility old firmware, I/O functions
-#define	INCLUDE_NOT_USE_2					// Compatibility old firmware, I/O RXTX functions
-
+#define	INCLUDE_NOT_USED					// Compatibility old firmware, I/O functions
 #define	INCLUDE_SI570						// Code generation for the PLL Si570 chip
 //#define	INCLUDE_AD9850					// Code generation for the DDS AD9850 chip
 
 
 #ifdef	INCLUDE_SI570						// Need i2c for the Si570 chip
-#define	DEVICE_XTAL		DEFAULT_XTAL		// 114.285 * _2(24)
-#define	DEVICE_I2C		(0x55)				// Default Si570 I2C address (can change per device)
+#define	DEVICE_XTAL		( 0x7248F5C2 )		// 114.285 * _2(24)
+#define	DEVICE_I2C		( 0x55 )			// Default Si570 I2C address (can change per device)
 #define	INCLUDE_I2C							// Include the i2c code
 #define	INCLUDE_ABPF						// Include automatic band pass filter selection
 #define INCLUDE_SMOOTH						// Include automatic smooth tune for the Si570 chip
+#define	INCLUDE_FREQ_SM						// Include frequency subtract multiply values
+#define	INCLUDE_CHECK_DSO_MAX				// Check calulated DSO freq on device max value
 #endif
 
 
 #ifdef	INCLUDE_AD9850						// Code generation for the DDS AD9850 chip
-#define	DEVICE_XTAL		(100.0*_2(24))		// Clock of the DDS chip [8.24]
-#define	DEVICE_I2C		(0x00)				// Used for DDS control / phase word
-#undef	INCLUDE_SMOOTH						// No smooth tune if the is no Si570 chip
+#define	DEVICE_XTAL		( 100.0 * _2(24) )	// Clock of the DDS chip [8.24]
+#define	DEVICE_I2C		( 0x00 )			// Used for DDS control / phase word
 #undef	INCLUDE_ABPF						// No automatic band pass filter selection
+#undef	INCLUDE_SMOOTH						// No smooth tune if the is no Si570 chip
+#define	INCLUDE_FREQ_SM						// Include frequency subtract multiply values
+#undef	INCLUDE_CHECK_DSO_MAX				// Check calulated DSO freq on device max value
 #endif
 
 
@@ -94,6 +89,9 @@
 #define	DDS_FQ_UD		PB4
 #endif
 
+#define	true			1
+#define	false			0
+
 #define	_2(x)			((uint32_t)1<<(x))	// Take power of 2
 
 #define	bit_1(port,bit)	port |= _BV(bit)	// Set bit to one
@@ -110,29 +108,32 @@ typedef union {
 
 typedef union {
 	uint32_t		dw;
-    struct {
+	struct {
 		sint16_t	w0;
 		sint16_t	w1;
 	};
 } sint32_t;
 
 typedef union {
-  uint8_t			bData[6];
-  uint16_t			wData[3];
-  struct {
-	uint8_t			N1:5;
-	uint8_t			HS_DIV:3;
-	uint8_t			RFREQ_b4;				// N1[1:0] RFREQ[37:32]
-	sint32_t		RFREQ;
-  };
+	uint8_t			bData[6];
+	uint16_t		wData[3];
+	struct {
+		uint8_t		N1:5;
+		uint8_t		HS_DIV:3;
+		uint8_t		RFREQ_b4;				// N1[1:0] RFREQ[37:32]
+		sint32_t	RFREQ;					// RFREQ[31:0]
+	};
 } Si570_t;
-
 
 typedef struct 
 {
 		uint8_t		RC_OSCCAL;				// CPU osc tune value
 		uint32_t	FreqXtal;				// crystal frequency[MHz] (8.24bits)
 		uint32_t	Freq;					// Running frequency[MHz] (11.21bits)
+#ifdef INCLUDE_FREQ_SM
+		uint32_t	FreqSub;				// Freq subtract value[MHz] (11.21bits)
+		uint32_t	FreqMul;				// Freq multiply value (11.21bits)
+#endif
 #ifdef INCLUDE_SMOOTH
 		uint16_t	SmoothTunePPM;			// Max PPM value for the smooth tune
 #endif
@@ -146,9 +147,10 @@ typedef struct
 extern	var_t		R;						// Variables in Ram
 extern	sint16_t	replyBuf[4];			// USB Reply buffer
 extern	Si570_t		Si570_Data;				// Registers 7..12 value for the Si570
+register uint8_t	usbRequest asm("r6");	// usbFunctionWrite command
+register uint8_t	SI570_OffLine asm("r7");// Si570 loaded, i2c open collector line high
 
 extern	uint8_t		GetRegFromSi570(void);
-extern	void		CalcFreqFromRegSi570(uint8_t*);
 extern	void		SetFreq(uint32_t freq);
 extern	void		DeviceInit(void);
 
@@ -173,12 +175,32 @@ extern	void		SetFilter(void);
 #ifdef INCLUDE_I2C
 #define	I2C_KBITRATE	400.0				// I2C Bus speed in Kbs
 
-extern	bool		I2CErrors;
+register uint8_t	I2CErrors asm("r8");
 extern	void		I2CSendStart(void);
 extern	void		I2CSendStop(void);
 extern	void		I2CSendByte(uint8_t b);
+extern	void 		I2CSend0(void);
+extern	void 		I2CSend1(void);
 extern	uint8_t		I2CReceiveByte(void);
-extern	uint8_t		I2CReceiveLastByte(void);
 #endif
+
+#if 0
+#   define SWITCH_START(cmd)       switch(cmd){{
+#   define SWITCH_CASE(value)      }break; case (value):{
+#   define SWITCH_CASE2(v1,v2)     }break; case (v1): case(v2):{
+#   define SWITCH_CASE3(v1,v2,v3)  }break; case (v1): case(v2): case(v3):{
+#   define SWITCH_CASE6(v1,v2,v3,v4,v5,v6)  }break; case (v1): case(v2): case(v3): case(v4): case(v5): case(v6):{
+#   define SWITCH_DEFAULT          }break; default:{
+#   define SWITCH_END              }}
+#else
+#   define SWITCH_START(cmd)       {uchar _cmd = cmd; if(0){
+#   define SWITCH_CASE(value)      }else if(_cmd == (value)){
+#   define SWITCH_CASE2(v1,v2)     }else if(_cmd == (v1) || _cmd == (v2)){
+#   define SWITCH_CASE3(v1,v2,v3)  }else if(_cmd == (v1) || _cmd == (v2) || (_cmd == v3)){
+#   define SWITCH_CASE6(v1,v2,v3,v4,v5,v6)  }else if(_cmd == (v1) || _cmd == (v2) || _cmd == (v3) || _cmd == (v4) || _cmd == (v5) || _cmd == (v6)){
+#   define SWITCH_DEFAULT          }else{
+#   define SWITCH_END              }}
+#endif
+
 
 #endif
