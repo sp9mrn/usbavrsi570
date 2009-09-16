@@ -9,8 +9,9 @@
 **                Copyright: (c) 2006 by OBJECTIVE DEVELOPMENT Software GmbH
 **                Based on ObDev's AVR USB driver by Christian Starkjohann
 **
-** Programmer...: F.W. Krom, PE0FKO and
-**                thanks to Tom Baier DG8SAQ for the initial program.
+** Programmer...: F.W. Krom, PE0FKO.
+**                Thanks to Tom Baier DG8SAQ for the initial program.
+**                Thanks to Alex Lee for the command 0x17 description.
 ** 
 ** Description..: Control the Si570 Freq. PLL chip over the USB port.
 **
@@ -33,6 +34,14 @@
 **                                  xtal freq of 114.285 MHz. Change static 
 **                                  variables to make some more free rom space.
 **                V15.9 17/02/2009: Disable I/O functions in case the ABPF is enabled.
+**               V15.10 18/03/2009: LO frequency subtract and multiply.
+**                                  Add cmd 0x31, Write the frequency subtract multiply to the eeprom
+**                                  Add cmd 0x39, Return the frequency subtract multiply
+**                                  Check if the DCO freq is lower than the Si570 max.
+**                                  Include some .c files, it is smaller in size.
+**                                  Move some static variables to register, smaller code size.
+**                                  Add support for the CW Key_2 in command 0x50 & 0x51.
+**                                  CW Key always return open if ABPF is enabled (command 0x50 & 0x51)
 **
 **************************************************************************
 
@@ -47,6 +56,7 @@ V15.6		4072 bytes (99.4% Full)
 V15.7		4090 bytes (99.9% Full)
 V15.8		3984 bytes (97.3% Full)
 V15.9		3984 bytes (97.3% Full)
+V15.10		4018 bytes (98.1% Full)
 
 
 Fuse bit information:
@@ -93,7 +103,7 @@ Modifications by Fred Krom, PE0FKO at Nov 2008
 Implemented functions:
 ----------------------
 
-V15.9
+V15.10
 +----+---+---+---+-----------------------------------------------------
 |Cmd |SQA|FKO| IO| Function
 +0x--+---+---+---+-----------------------------------------------------
@@ -125,10 +135,12 @@ V15.9
 | 22 | * |   | I | [DO NOT USE] SI570: freeze NCO (Use command 0x20)
 | 23 | * |   | I | [DO NOT USE] SI570: unfreeze NCO (Use command 0x20)
 | 30 | * | * | O | Set frequency by register and load Si570
+| 31 |   | * | O | Write the frequency subtract multiply to the eeprom
 | 32 | * | * | O | Set frequency by value and load Si570
 | 33 | * | * | O | write new crystal frequency to EEPROM and use it.
 | 34 |   | * | O | Write new startup frequency to eeprom
 | 35 |   | * | O | Write new smooth tune to eeprom and use it.
+| 39 |   | * | I | Return the frequency subtract multiply
 | 3A |   | * | I | Return running frequency
 | 3B |   | * | I | Return smooth tune ppm value
 | 3C |   | * | I | Return the startup frequency
@@ -138,8 +150,8 @@ V15.9
 | 40 | * | * | I | Return I2C transmission error status
 | 41 | * |   | I | [DO NOT USE] set/reset init freq status
 | 41 |   | * | I | Set the new i2c address.
-| 50 | * | * | I | [DO NOT USE] set USR_P1 and get cw-key status
-| 51 | * | * | I | [DO NOT USE] read SDA and cw key level simultaneously
+| 50 | * | * | I | Set USR_P1 and get cw-key status
+| 51 | * | * | I | Read SDA and CW key level simultaneously
 
 
 Commands:
@@ -171,6 +183,24 @@ In case of a unknow command the firmware will return a 1 (one) if there is a byt
 returns the byte 255.
 
 
+In the next examples I will use two subroutines that will call the usb_control_msg function, it make's 
+the examples more readable:
+
+int usbCtrlMsgIN(int request, int value, int index, char *bytes, int size)
+{
+  return usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN,
+                         request, value, index, bytes, size, 500);
+}
+
+int usbCtrlMsgOUT(int request, int value, int index, char *bytes, int size)
+{
+  return usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_OUT,
+                         request, value, index, bytes, size, 500);
+}
+
+
+
+
 Command 0x00:
 -------------
 This call will return the version number of the firmware. The high byte is the version major and the
@@ -184,8 +214,7 @@ string for that.
 
 Code sample:
     uint16_t version;
-    r = usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN
-                    0x00, 0x0E00, 0, &version, sizeof(version), 1000);
+    r = usbCtrlMsgIN(0x00, 0x0E00, 0, &version, sizeof(version));
 	// if the return value is 2, the variable version will give the major and minor
 	// version number in the high and low byte.
 
@@ -255,8 +284,7 @@ In case of the enabled ABPF no change of I/O will be done.
 
 Code sample:
     uint16_t INP;
-    r = usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN
-                    0x15, 0x02, 0x02, &INP, sizeof(INP), 1000);
+    r = usbCtrlMsgIN(0x15, 0x02, 0x02, &INP, sizeof(INP));
     // Set P2 to output and one!
     // Use P1 as input, no internal pull up R enabled.
     // Read the input in array INP[], only bit0 and bit1 used by this hardware.
@@ -276,8 +304,7 @@ Get the I/O values in the returned word, the SoftRock V9 only had two I/O lines,
 
 Code sample:
     uint16_t INP;
-    r = usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN
-                    0x16, 0, 0, &INP, sizeof(INP), 1000);
+    r = usbCtrlMsgIN(0x16, 0, 0, &INP, sizeof(INP));
     // Read the input word INP, only bit0 and bit1 used by SoftRock V9 hardware.
 
 Parameters:
@@ -292,47 +319,88 @@ Parameters:
 Command 0x17:
 -------------
 Read the Filter cross over points and set one point.
-The call will read the three filter cross over points and set one of the points if specified.
-The data format of the points is a 11.5 bits in MHz, that give a resolution of 1/32 MHz.
-The fourth data entry is a boolean specifying if the had to be used!
+
+This command can control 2 banks of filters.  Typically the first bank is the Rx and Tx BPF
+used in the QSD and QSE stages.  The second bank is the Tx LPF between the PA and the antenna
+output.  The # of crossover points of the two banks of filters can be different.  For example,
+the first bank is usually 4 bands (160m, 80/40m, 30/17/20m, 15/12/10m) as in Softrock v6.3 and
+v9.0.  The second bank is usually 6 bands but can go up to 7, 8, 12 or even 16!
+
+The index is used to specify the particular filter crossover point.  The index of the 1st bank
+starts from 0, and ends at the last crossover point.  For example, if there are 4 bands, then
+there will be 3 crossover points: 0, 1, and 2.  Index 3 is used as a boolean flag, specifying
+whether this filter bank is enabled or disabled (for automatic band pass filter ABPF function).
+
+The index of the 2nd filter bank starts from 256, and ends at the last crossover point.  For
+example, if there are 6 LPF's, then there will be 5 crossover points, with index 256, 257, 258,
+259, and 260.  index 261 is used as a boolean flag, specifying whether this filter bank is
+enabled or disabled (for automatic switching).  If "disabled", it usually means the filter is
+set for "all pass" or bypassed.
+
+The first call to this command should be used to find out how many crossover points there are.
+Call with an index of 255 for the 1st filter bank, and an index of 256+255 for the 2nd filter
+bank.
+
+  filter_number_of_bytes = usbCtrlMsgIN(0x17, 0, 255, FilterCrossOver, sizeof(FilterCrossOver));
+
+If there are 4 filters (3 crossover points), then the filter_number_of_bytes returned will be 8.
+(Each crossover point is 2 bytes.  Thus there will be 6 bytes.  Following that another 2 bytes will
+be for the boolean flag, making a total of 8).
+
+If ther are 6 filters (5 crossover points), there filter_number_of_bytes returned will be 12.
+
+Subsequent calls to this command can then be used to:
+
+1.  set one of the filter crossover points by specifying the index
+2.  enable/disable the filter bank by specifying the last index (for the boolean flag)
+3.  read the cross over points only - all of them of one bank at once, by specifying 255 (1st bank)
+    or 256+255 (2nd bank).
+
+(Note that in actions 1 and 2 above, the cross over points are also read out after the completion
+of the action.)
+
+The data format of the crossover points is a 11.5 bits in MHz, that gives a resolution of 1/32 MHz.
+The last data entry is a boolean flag to enable or disable the filter bank.
 
 Code sample:
-    uint16_t FilterCrossOver[4];
-    FilterCrossOver[0] = 4.1 * 4.0 * (1<<5);
-    FilterCrossOver[1] = 8.0 * 4.0 * (1<<5);
-    FilterCrossOver[2] = 16. * 4.0 * (1<<5);
-    FilterCrossOver[4] = true;        // Enable
+   uint16_t FilterCrossOver[16];        // allocate enough space for up to 16 filters
+   unsigned int filter_number_of_bytes;
 
-    usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN
-                    0x17, FilterCrossOver[0], 0, NULL, 0, 1000);
+  // first find out how may cross over points there are for the 1st bank, use 255 for index
+  filter_number_of_bytes = usbCtrlMsgIN(0x17, 0, 255, FilterCrossOver, sizeof(FilterCrossOver));
 
-    usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN
-                    0x17, FilterCrossOver[1], 1, NULL, 0, 1000);
+  // Specify filter cross over point for a softrock that divide the LO by 4!
+  // And read the points back from the device in the last call.
+  if (filter_number_of_bytes == 8)  // 3 crossover points and one flag, so set them up
+  {
+	FilterCrossOver[0] = 4.1 * 4.0 * (1<<5);
+	FilterCrossOver[1] = 8.0 * 4.0 * (1<<5);
+	FilterCrossOver[2] = 16. * 4.0 * (1<<5);
+	FilterCrossOver[3] = true;        // Enable
 
-    usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN
-                    0x17, FilterCrossOver[2], 2, NULL, 0, 1000);
+	usbCtrlMsgIN(0x17, FilterCrossOver[0], 0, NULL, 0);
+	usbCtrlMsgIN(0x17, FilterCrossOver[1], 1, NULL, 0);
+	usbCtrlMsgIN(0x17, FilterCrossOver[2], 2, NULL, 0);
+	usbCtrlMsgIN(0x17, FilterCrossOver[3], 3, FilterCrossOver, sizeof(FilterCrossOver));
+  }
 
-    usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN
-                    0x17, FilterCrossOver[3], 3, FilterCrossOver, sizeof(FilterCrossOver), 1000);
-
-    // Specify filter cross over point for a softrock that divide the LO by 4!
-    // And read the points back from the device.
 
 Parameters: Setting one of the points
-    requesttype:    USB_ENDPOINT_IN
-    request:         0x17
-    value:           FilterCrossOver[0]
-    index:           0..2 index of the 'value' filter point.
-    bytes:           Array of four 16bits integers for the filter points.
-    size:            8
+   requesttype:    USB_ENDPOINT_IN
+   request:         0x17
+   value:           FilterCrossOver[i]   i being the index of the particular cross over point
+   index:           index of the 'value' filter point.
+   bytes:           Array of up to 16 16bits integers for the filter points.
+   size:            filter_number_of_bytes
 
 Parameters: Enable / disable the filter
-    requesttype:    USB_ENDPOINT_IN
-    request:         0x17
-    value:           0 (disable) or 1 (enable)
-    index:           3
-    bytes:           Array of four 16bits integers for the filter points.
-    size:            8
+   requesttype:    USB_ENDPOINT_IN
+   request:         0x17
+   value:           0 (disable) or 1 (enable)
+   index:           index of 1 plus the last crossover point
+   bytes:           Array of up to 16 16bits integers for the filter points.
+   size:            filter_number_of_bytes
+
 
 
 Command 0x20:
@@ -342,8 +410,7 @@ Write one byte to a Si570 register. Return value is the i2c error boolean in the
 Code sample:
 	// Si570 RECALL function
 	uint8_t i2cError;
-    r = usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN
-                    0x20, 0x55 | (135<<8), 0x01, &i2cError, 1, 1000);
+    r = usbCtrlMsgIN(0x20, 0x55 | (135<<8), 0x01, &i2cError, 1);
 	if (r == 1 && i2cError == 0)
 		// OK
 
@@ -357,8 +424,8 @@ Parameters:
     size:            0
 
 
-Command 0x30 & 0x31:
---------------------
+Command 0x30:
+-------------
 Set the oscillator frequency by Si570 register. The real frequency will be 
 calculated by the firmware and the called command 0x32
 
@@ -373,10 +440,45 @@ Parameters:
     size:            6
 
 
+Command 0x31:
+-------------
+Write the frequency subtract, multiply value's to the eeprom and use it.
+
+The real frequency is the input frequnecy minus the subtract value times the multiply value.
+Si570_F = (Finput - subtract) * multiply
+
+
+Default:    None
+
+Parameters:
+    requesttype:    USB_ENDPOINT_OUT
+    request:         0x31
+    value:           Don't care
+    index:           Don't care
+    bytes:           pointer 2 * 32 bits interger
+    size:            8
+
+Code sample:
+	double sub, mul;
+    uint32_t iSM[2];
+
+	sub = 135.0;
+	mul = 4.0;
+
+	iSM[0] = (uint32_t)( sub * (1UL << 21) );
+	iSM[1] = (uint32_t)( mul * (1UL << 21) );
+
+    r = usbCtrlMsgOUT(0x31, 0, 0, (char *)iSM, sizeof(iSM));
+    if (r != sizeof(iSM)) Error
+
+
+
 Command 0x32:
 -------------
 Set the oscillator frequency by value. The frequency is formatted in MHz
-as 11.21 bits value.
+as 11.21 bits value. 
+The "automatic band pass filter selection", "smooth tune", "one side calibration" and
+the "frequency subtract multiply" are all done in this function. (if anabled in the firmware)
 
 Default:    None
 
@@ -393,9 +495,8 @@ Code sample:
     double   dFreq;
 
     dFreq = 30.123456; // MHz
-    iFreq = (uint32_t)( dFreq * (1UL<<21) )
-    r = usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_OUT
-                    0x32, 0, 0, (char *)&iFreq, sizeof(iFreq), 1000);
+    iFreq = (uint32_t)( dFreq * (1UL << 21) )
+    r = usbCtrlMsgOUT(0x32, 0, 0, (char *)&iFreq, sizeof(iFreq));
     if (r < 0) Error
 
 
@@ -420,8 +521,7 @@ Code sample:
 
     dXtalFreq = 114.281;
     iXtalFreq = (uint32_t)( dXtalFreq * (1UL<<24) )
-    r = usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_OUT
-                    0x33, 0, 0, (char *)&iXtalFreq, sizeof(iXtalFreq), 1000);
+    r = usbCtrlMsgOUT(0x33, 0, 0, (char *)&iXtalFreq, sizeof(iXtalFreq));
     if (r < 0) Error
 
 
@@ -447,8 +547,7 @@ Code sample:
 
     dFreq = 4.0 * 3.550; // MHz
     iFreq = (uint32_t)( dFreq * (1UL<<24) )
-    r = usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_OUT
-                    0x34, 0, 0, (char *)&iFreq, sizeof(iFreq), 1000);
+    r = usbCtrlMsgOUT(0x34, 0, 0, (char *)&iFreq, sizeof(iFreq));
     if (r < 0) Error
 
 
@@ -469,9 +568,34 @@ Parameters:
 Code sample:
     uint16_t Smooth;
     Smooth = 3400;
-    r = usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_OUT
-                    0x35, 0, 0, (char *)&Smooth, sizeof(Smooth), 1000);
+    r = usbCtrlMsgOUT(0x35, 0, 0, (char *)&Smooth, sizeof(Smooth));
     if (r < 0) Error
+
+
+Command 0x39:
+-------------
+Return the frequency subtract multiply values.
+
+
+Default:    subtract = 0.0, multiply = 1.0
+
+Parameters:
+    requesttype:    USB_ENDPOINT_IN
+    request:         0x39
+    value:           Don't care
+    index:           Don't care
+    bytes:           pointer 2 * 32 bits integer
+    size:            8
+
+Code sample:
+    uint32_t iSM[2];
+	double sub, mul;
+
+    r = usbCtrlMsgIN(0x39, 0, 0, (char *)iSM, sizeof(iSM));
+    if (r != sizeof(iSM)) Error
+
+	sub = (double)(int32_t)iSM[0] / (1UL << 21); // Signed value
+	mul = (double)         iSM[1] / (1UL << 21);
 
 
 Command 0x3A:
@@ -490,8 +614,7 @@ Parameters:
 Code sample:
     uint32_t iFreq;
     double   dFreq;
-    r = usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN
-                    0x3A, 0, 0, (char *)&iFreq, sizeof(iFreq), 1000);
+    r = usbCtrlMsgIN(0x3A, 0, 0, (char *)&iFreq, sizeof(iFreq));
     if (r == 4)
         dFreq = (double)iFreq / (1UL<<21);
 
@@ -515,8 +638,7 @@ Parameters:
 
 Code sample:
     uint16_t Smooth;
-    r = usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN
-                    0x3B, 0, 0, (char *)&Smooth, sizeof(Smooth), 1000);
+    r = usbCtrlMsgIN(0x3B, 0, 0, (char *)&Smooth, sizeof(Smooth));
     if (r == 2) ...
 
 
@@ -538,8 +660,7 @@ Parameters:
 Code sample:
     uint32_t iFreq;
     double   dFreq;
-    r = usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN
-                    0x3C, 0, 0, (char *)&iFreq, sizeof(iFreq), 1000);
+    r = usbCtrlMsgIN(0x3C, 0, 0, (char *)&iFreq, sizeof(iFreq));
     if (r == 4)
         dFreq = (double)iFreq / (1UL<<21);
 
@@ -562,8 +683,7 @@ Parameters:
 Code sample:
     uint32_t iFreqXtal;
     double   dFreqXtal;
-    r = usb_control_msg(handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN
-                    0x3D, 0, 0, (char *)&iFreqXtal, sizeof(iFreqXtal), 1000);
+    r = usbCtrlMsgIN(0x3D, 0, 0, (char *)&iFreqXtal, sizeof(iFreqXtal));
     if (r == 4)
         dFreqXtal = (double)iFreqXtal / (1UL<<24);
 
@@ -603,26 +723,35 @@ Parameters:
 
 Command 0x50:
 -------------
-Set IO_P1 and read CW key level.
-In case of the enabled ABPF no change of IO_P1 will be done and only the return of the CW level is done!
+Set PTT (PB4) I/O line and read CW key level from the PB5 (CW Key_1) and PB1 (CW Key_2).
+In case of the enabled ABPF no change of PTT I/O line will be done and no read of the CW key's are
+done. The command will return (in case of enabled ABPF) for both CW key's a open status (bits are 1).
+The returnd bit value is bit 5 (0x20) for CW key_1 and bit 1 (0x02) for CW key_2, the other bits are zero.
+
 
 Parameters:
     requesttype:    USB_ENDPOINT_IN
     request:         0x50
-    value:           Output bool to user output P1
+    value:           Output bool to user output PTT
     index:           0
-    bytes:           pointer to 1 byte variable P2
+    bytes:           pointer to 1 byte variable CW Key's
     size:            1
 
 
 Command 0x51:
 -------------
-Read CW key level.
+Read CW key level from the PB5 (CW Key_1) and PB1 (CW Key_2).
+In case of the enabled ABPF no read of the CW key's are done. The command will return for both CW key's 
+a open status (bits are 1).
+The returnd bit value is bit 5 (0x20) for CW key_1 and bit 1 (0x02) for CW key_2, the other bits are zero.
+
 
 Parameters:
     requesttype:    USB_ENDPOINT_IN
     request:         0x51
     value:           0
     index:           0
-    bytes:           pointer to 1 byte variable P2
+    bytes:           pointer to 1 byte variable CW Key's
     size:            1
+
+EOF

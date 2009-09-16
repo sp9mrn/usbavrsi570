@@ -26,13 +26,12 @@
 
 #ifdef INCLUDE_SI570
 
-static	bool		SI570_online;		// Si570 loaded, i2c open collector line high
-static	uint16_t	Si570_N;			// Total division (N1 * HS_DIV)
-static	uint8_t		Si570_N1;			// The slow divider
-static	uint8_t		Si570_HS_DIV;		// The high speed divider
+register uint16_t	Si570_N		 asm("r2");	// Total division (N1 * HS_DIV)
+register uint8_t	Si570_N1	 asm("r4");	// The slow divider
+register uint8_t	Si570_HS_DIV asm("r5");	// The high speed divider
 
 #ifdef INCLUDE_SMOOTH
-		uint32_t	FreqSmoothTune;		// The smooth tune center frequency
+		uint32_t	FreqSmoothTune;			// The smooth tune center frequency
 #endif
 
 static	void		Si570Write(void);
@@ -41,11 +40,13 @@ static	void		Si570FreezeNCO(void);
 static	void		Si570UnFreezeNCO(void);
 static	void		Si570NewFreq(void);
 
+#include "CalcVFO.c"						// Include code is small size
+
 // Cost: 140us
 // This function only works for the "C" & "B" grade of the Si570 chip.
 // It will not check the frequency gaps for the "A" grade chip!!!
-static bool
-Si570CalcDivider()
+static uint8_t
+Si570CalcDivider(uint32_t freq)
 {
 	// Register finding the lowest DCO frequenty
 	uint8_t		xHS_DIV;
@@ -60,7 +61,8 @@ Si570CalcDivider()
 	uint16_t	N0;						// Total divider needed (N1 * HS_DIV)
 	sint32_t	Freq;
 
-	Freq.dw = R.Freq;
+	Freq.dw = freq;
+
 
 	// Find the total division needed.
 	// It is always one to low (not in the case reminder is zero, reminder not used here).
@@ -96,7 +98,7 @@ Si570CalcDivider()
 	}
 
 	if (sHS_DIV == 0)
-		return 0;
+		return false;
 
 	Si570_N      = sN;
 	Si570_N1     = sN1;
@@ -107,7 +109,8 @@ Si570CalcDivider()
 
 // Cost: 140us
 // frequency [MHz] * 2^21
-static void
+static 
+uint8_t
 Si570CalcRFREQ(uint32_t freq)
 {
 	uint8_t		cnt;
@@ -177,6 +180,18 @@ Si570CalcRFREQ(uint32_t freq)
 //	: "r0"                          // r0 -> Tempory register
 	);
 
+#ifdef INCLUDE_CHECK_DSO_MAX
+	// Check if DCO is lower than the Si570 max specied.
+	// The low 3 bit's are not used, so the error is 8MHz
+	// DCO = Freq * sN (calculated above)
+	// RFREQ is [19.21]bits
+	sint16_t DCO;
+	DCO.b0 = RFREQ.w1.b1;
+	DCO.b1 = RFREQ_b4;
+	if (DCO.w > ((DCO_MAX+4)/8))
+		return 0;
+#endif
+
 	// 2- RFREQ:b4 = RFREQ:b4 * 8 / FreqXtal
 	//---------------------------------------------
 	
@@ -191,10 +206,6 @@ Si570CalcRFREQ(uint32_t freq)
 	RR = 0;							// Clear Remainder_40
 	cnt = 40+1+28+3;				// Init Loop_Counter
 									// (28 = 12.28 bits, 3 = * 8)
-	// DCO = freq * sN
-	// if (RFREQ:b4 > DCO_MAX)
-	//	return 0;
-
 	asm (
 	"clc                 \n\t"		// Partial_result = carry = 0
 	
@@ -266,11 +277,14 @@ Si570CalcRFREQ(uint32_t freq)
 	//               ^^------------< N1[1:0]
 	Si570_Data.RFREQ_b4  = RFREQ_b4;
 	Si570_Data.RFREQ_b4 |= (sN1 & 0x03) << 6;
+
+	return 1;
 }
+
 
 #ifdef INCLUDE_SMOOTH
 
-static bool
+static uint8_t
 Si570_Small_Change(uint32_t current_Frequency)
 {
 	uint32_t delta_F, delta_F_MAX;
@@ -296,16 +310,17 @@ Si570_Small_Change(uint32_t current_Frequency)
 	//   [27.5] =                          [11.5] * [16.0]
 
 	// return TRUE if output changes less than ±3500 ppm from the previous_Frequency
-	return (delta_F <= delta_F_MAX);
-
-} // end Si570_Small_Change
+	return (delta_F <= delta_F_MAX) ? true : false;
+}
 
 #endif
 
 void
 SetFreq(uint32_t freq)		// frequency [MHz] * 2^21
 {
-	R.Freq = freq;
+#ifdef INCLUDE_FREQ_SM
+	freq = CalcFreqMulAdd(freq);
+#endif
 
 #ifdef INCLUDE_SMOOTH
 
@@ -316,24 +331,23 @@ SetFreq(uint32_t freq)		// frequency [MHz] * 2^21
 	}
 	else
 	{
-		FreqSmoothTune = freq;
+		if (!Si570CalcDivider(freq) || !Si570CalcRFREQ(freq))
+			return;
 
-		if (Si570CalcDivider())
-		{
-			Si570CalcRFREQ(freq);
-			Si570Load();
-		}
+		FreqSmoothTune = freq;
+		Si570Load();
 	}
 
 #else
 
-	if (Si570CalcDivider())
-	{
-		Si570CalcRFREQ(freq);
-		Si570Load();
-	}
+	if (!Si570CalcDivider(freq) || !Si570CalcRFREQ(freq))
+		return;
+
+	Si570Load();
 
 #endif
+
+	R.Freq = freq;
 
 #ifdef INCLUDE_ABPF
 	SetFilter();
@@ -345,27 +359,30 @@ DeviceInit(void)
 {
 	// Check if Si570 is online and intialize if nessesary
 	// SCL Low is now power on the SI570 chip in the Softrock V9
-	if ((I2C_PIN & _BV(BIT_SCL)) == 0)
+	if ((I2C_PIN & _BV(BIT_SCL)) != 0)
 	{
-		SI570_online = false;
-	} 
-	else if (!SI570_online)
-	{
+		if (SI570_OffLine)
+		{
 #ifdef INCLUDE_SMOOTH
-		FreqSmoothTune = 0;				// Next SetFreq call no smoodtune
+			FreqSmoothTune = 0;				// Next SetFreq call no smoodtune
 #endif
-		SetFreq(R.Freq);
+			SetFreq(R.Freq);
 
-		SI570_online = !I2CErrors;
+			SI570_OffLine = I2CErrors;
+		}
+	}
+	else 
+	{
+		SI570_OffLine = true;
 	}
 }
 
-static bool
+static uint8_t
 Si570CmdStart(uint8_t cmd)
 {
 	I2CSendStart();
-	I2CSendByte(R.ChipCrtlData<<1);		// send device address 
-	if (!I2CErrors)
+	I2CSendByte((R.ChipCrtlData<<1)|0);	// send device address 
+	if (I2CErrors == 0)
 	{
 		I2CSendByte(cmd);				// send Byte Command
 		return true;
@@ -408,7 +425,7 @@ Si570Write(void)
 	if (Si570CmdStart(7))				// send Byte address 7
 	{
 		uint8_t i;
-		for (i=0;i<6;i++)				// all 5 registers
+		for (i=0;i<6;i++)				// all 6 registers
 			I2CSendByte(Si570_Data.bData[i]);// send data 
 	}
 	I2CSendStop();
@@ -424,8 +441,12 @@ GetRegFromSi570(void)
 		I2CSendStart();	
 		I2CSendByte((R.ChipCrtlData<<1)|1);
 		for (i=0; i<5; i++)
+		{
 			((uint8_t*)replyBuf)[i] = I2CReceiveByte();
-		((uint8_t*)replyBuf)[5] = I2CReceiveLastByte();
+			I2CSend0();					// 0 more bytes to follow
+		}
+		((uint8_t*)replyBuf)[5] = I2CReceiveByte();
+		I2CSend1();						// 1 Last byte
 	}
 	I2CSendStop(); 
 
@@ -436,7 +457,7 @@ static void
 Si570Load(void)
 {
 	Si570FreezeNCO();
-	if (!I2CErrors)
+	if (I2CErrors == 0)
 	{
 		Si570Write();
 		Si570UnFreezeNCO();

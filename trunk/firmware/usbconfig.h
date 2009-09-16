@@ -22,8 +22,13 @@
 /* ---------------------------- Hardware Config ---------------------------- */
 
 #define	USB_CFG_IOPORTNAME			B
-#define	USB_CFG_DMINUS_BIT			2
+#if 1
+#define	USB_CFG_DMINUS_BIT			2	//ORG
 #define	USB_CFG_DPLUS_BIT			0
+#else
+#define	USB_CFG_DMINUS_BIT			0
+#define	USB_CFG_DPLUS_BIT			2
+#endif
 
 /* --------------------------- Functional Range ---------------------------- */
 

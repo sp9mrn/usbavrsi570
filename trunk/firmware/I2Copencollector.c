@@ -32,8 +32,6 @@
 
 #define	I2C_DELAY_uS		(1000.0 / I2C_KBITRATE)
 
-bool	I2CErrors;
-
 static void 
 I2CDelay(void)
 {
@@ -87,7 +85,7 @@ I2CSendStop(void)
 	I2C_SDA_HI;		I2CDelay();
 }
 
-static void 
+void 
 I2CSend0(void)
 {
 	I2C_SDA_LO;							// Data low = 0
@@ -95,7 +93,7 @@ I2CSend0(void)
 	I2C_SCL_LO;		I2CDelay();
 }
 
-static void 
+void 
 I2CSend1(void)
 {
 	I2C_SDA_HI;							// Data high = 1
@@ -103,13 +101,13 @@ I2CSend1(void)
 	I2C_SCL_LO;		I2CDelay();
 }
 
-static bool
+static uint8_t
 I2CGetBit(void)
 {
-	bool b;
+	uint8_t b;
 	I2C_SDA_HI;							// Data high = input (opencollector)
 	I2C_SCL_HI;		I2CStretch();		// SDA Hi Z and wait
-	b = (I2C_PIN & SDA) != 0;			// get bit
+	b = (I2C_PIN & SDA);				// get bit
 	I2C_SCL_LO;							// clock low
 	return b;
 }
@@ -136,24 +134,10 @@ I2CReceiveByte(void)
     for (i=0; i<8; i++)
 	{
 		b = b << 1;
-    	b = b | I2CGetBit();
+		if (I2CGetBit()) b |= 1;
   	};
-	I2CSend0();									//send Acknowledge
-  	return b;
-}
-
-uint8_t
-I2CReceiveLastByte(void)
-{
-	uint8_t i;
-	uint8_t b = 0;
-    for (i=0; i<8; i++)
-	{
-		b = b << 1;
-    	b = b | I2CGetBit();
-  	};
-	I2CSend1();									//send Acknowledge
   	return b;
 }
 
 #endif
+
