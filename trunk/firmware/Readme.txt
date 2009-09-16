@@ -32,6 +32,7 @@
 **                V15.8 10/02/2009: CalcFreqFromRegSi570() will use the fixed
 **                                  xtal freq of 114.285 MHz. Change static 
 **                                  variables to make some more free rom space.
+**                V15.9 17/02/2009: Disable I/O functions in case the ABPF is enabled.
 **
 **************************************************************************
 
@@ -45,6 +46,7 @@ V15.5		4044 bytes (98.7% Full)
 V15.6		4072 bytes (99.4% Full)
 V15.7		4090 bytes (99.9% Full)
 V15.8		3984 bytes (97.3% Full)
+V15.9		3984 bytes (97.3% Full)
 
 
 Fuse bit information:
@@ -91,7 +93,7 @@ Modifications by Fred Krom, PE0FKO at Nov 2008
 Implemented functions:
 ----------------------
 
-V15.8
+V15.9
 +----+---+---+---+-----------------------------------------------------
 |Cmd |SQA|FKO| IO| Function
 +0x--+---+---+---+-----------------------------------------------------
@@ -217,6 +219,7 @@ Do not use.
 Command 0x04:
 -------------
 Set ports.
+In case of the enabled ABPF no change of I/O will be done.
 Do not use, use I/O function 0x15
 
 
@@ -248,7 +251,7 @@ There are two values for every I/O bit, the data direction and data bits.
 |  1  |   1  | output 1
 +-----+------+----------------------
 
-It only works if automatic filter is disabled!
+In case of the enabled ABPF no change of I/O will be done.
 
 Code sample:
     uint16_t INP;
@@ -601,6 +604,7 @@ Parameters:
 Command 0x50:
 -------------
 Set IO_P1 and read CW key level.
+In case of the enabled ABPF no change of IO_P1 will be done and only the return of the CW level is done!
 
 Parameters:
     requesttype:    USB_ENDPOINT_IN

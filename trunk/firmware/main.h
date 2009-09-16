@@ -19,6 +19,9 @@
 //**
 //**************************************************************************
 
+#ifndef _PE0FKO_MAIN_H_
+#define _PE0FKO_MAIN_H_ 1
+
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -31,7 +34,7 @@
 #include "usbdrv.h"
 
 #define	VERSION_MAJOR	15
-#define	VERSION_MINOR	8
+#define	VERSION_MINOR	9
 
 #define	DEVICE_STARTUP	( 59139686 )			// 4.0 * 7.050 * _2(21)
 #define	DEFAULT_XTAL	(1917384130)			// 114.285 * _2(24)
@@ -43,7 +46,8 @@
 
 
 // Switch's to set the code needed
-#define	INCLUDE_NOT_USE						// Also the code for compatibility old firmware
+#define	INCLUDE_NOT_USE_1					// Compatibility old firmware, I/O functions
+#define	INCLUDE_NOT_USE_2					// Compatibility old firmware, I/O RXTX functions
 
 #define	INCLUDE_SI570						// Code generation for the PLL Si570 chip
 //#define	INCLUDE_AD9850					// Code generation for the DDS AD9850 chip
@@ -175,4 +179,6 @@ extern	void		I2CSendStop(void);
 extern	void		I2CSendByte(uint8_t b);
 extern	uint8_t		I2CReceiveByte(void);
 extern	uint8_t		I2CReceiveLastByte(void);
+#endif
+
 #endif
