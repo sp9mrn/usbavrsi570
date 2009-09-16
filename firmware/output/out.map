@@ -235,7 +235,7 @@ LOAD d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a
                 0x000000d6                __vector_14
                 0x000000d6                __vector_10
  .text          0x000000d8      0x2ea main.o
-                0x000001de                usbFunctionSetup
+                0x000001d4                usbFunctionSetup
                 0x000000d8                __vector_default
                 0x000000da                main
                 0x0000013e                usbFunctionWrite
@@ -497,16 +497,16 @@ LOAD d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a
  .debug_pubnames
                 0x00000369       0x20 OptionABPF.o
 
-.debug_info     0x00000000     0x1c7d
+.debug_info     0x00000000     0x1c6f
  *(.debug_info)
- .debug_info    0x00000000      0x7e7 main.o
- .debug_info    0x000007e7      0x140 osccal.o
- .debug_info    0x00000927      0x2d9 I2Copencollector.o
- .debug_info    0x00000c00      0x752 usbdrv.o
- .debug_info    0x00001352      0x147 FreqFromSi570.o
- .debug_info    0x00001499      0x5bb DeviceSi570.o
- .debug_info    0x00001a54       0x64 DeviceAd9850.o
- .debug_info    0x00001ab8      0x1c5 OptionABPF.o
+ .debug_info    0x00000000      0x7d9 main.o
+ .debug_info    0x000007d9      0x140 osccal.o
+ .debug_info    0x00000919      0x2d9 I2Copencollector.o
+ .debug_info    0x00000bf2      0x752 usbdrv.o
+ .debug_info    0x00001344      0x147 FreqFromSi570.o
+ .debug_info    0x0000148b      0x5bb DeviceSi570.o
+ .debug_info    0x00001a46       0x64 DeviceAd9850.o
+ .debug_info    0x00001aaa      0x1c5 OptionABPF.o
  *(.gnu.linkonce.wi.*)
 
 .debug_abbrev   0x00000000      0xc31
@@ -520,16 +520,16 @@ LOAD d:/winavr-20071221/bin/../lib/gcc/avr/4.2.2/avr25\libgcc.a
  .debug_abbrev  0x00000b20       0x33 DeviceAd9850.o
  .debug_abbrev  0x00000b53       0xde OptionABPF.o
 
-.debug_line     0x00000000     0x1057
+.debug_line     0x00000000     0x1074
  *(.debug_line)
- .debug_line    0x00000000      0x46d main.o
- .debug_line    0x0000046d      0x14e osccal.o
- .debug_line    0x000005bb      0x25b I2Copencollector.o
- .debug_line    0x00000816      0x34a usbdrv.o
- .debug_line    0x00000b60       0xd9 FreqFromSi570.o
- .debug_line    0x00000c39      0x2d5 DeviceSi570.o
- .debug_line    0x00000f0e       0x41 DeviceAd9850.o
- .debug_line    0x00000f4f      0x108 OptionABPF.o
+ .debug_line    0x00000000      0x48a main.o
+ .debug_line    0x0000048a      0x14e osccal.o
+ .debug_line    0x000005d8      0x25b I2Copencollector.o
+ .debug_line    0x00000833      0x34a usbdrv.o
+ .debug_line    0x00000b7d       0xd9 FreqFromSi570.o
+ .debug_line    0x00000c56      0x2d5 DeviceSi570.o
+ .debug_line    0x00000f2b       0x41 DeviceAd9850.o
+ .debug_line    0x00000f6c      0x108 OptionABPF.o
 
 .debug_frame    0x00000000      0x230
  *(.debug_frame)

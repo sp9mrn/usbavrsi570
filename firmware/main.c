@@ -31,6 +31,7 @@
 //**                V15.8 10/02/2009: CalcFreqFromRegSi570() will use the fixed
 //**                                  xtal freq of 114.285 MHz. Change static 
 //**                                  variables to make some more free rom space.
+//**                V15.9 17/02/2009: Disable I/O functions in case the ABPF is enabled.
 //**
 //**************************************************************************
 //
@@ -90,6 +91,7 @@
 // - Calculation of the freq from the Si570 registers and call 0x32, command 0x30
 
 #include "main.h"
+//#include "usbdrv.c"
 
 EEMEM	var_t		E;							// Variables in eeprom
 		var_t		R							// Variables in ram
@@ -125,7 +127,6 @@ uchar usbFunctionWrite(uchar *data, uchar len) //sends len bytes to SI570
     switch(command)
 	{
 	case 0x30:							// Set frequnecy by register and load Si570
-	case 0x31:							// Write only the Si570 registers
 		if (len >= 6)
 		{
 			CalcFreqFromRegSi570(data);	// Calc the freq from the Si570 register value
@@ -144,14 +145,14 @@ uchar usbFunctionWrite(uchar *data, uchar len) //sends len bytes to SI570
 		if (len >= 4) 
 		{
 			R.FreqXtal = *(uint32_t*)data;
-			eeprom_write_block(&R.FreqXtal, &E.FreqXtal, sizeof(E.FreqXtal));
+			eeprom_write_block(data, &E.FreqXtal, sizeof(E.FreqXtal));
 		}
 		break;
 
 	case 0x34:							// Write new startup frequency to eeprom
 		if (len >= 4) 
 		{
-			eeprom_write_block((uint32_t*)data, &E.Freq, sizeof(E.Freq));
+			eeprom_write_block(data, &E.Freq, sizeof(E.Freq));
 		}
 		break;
 
@@ -160,7 +161,7 @@ uchar usbFunctionWrite(uchar *data, uchar len) //sends len bytes to SI570
 		if (len >= 2) 
 		{
 			R.SmoothTunePPM = *(uint16_t*)data;
-			eeprom_write_block(&R.SmoothTunePPM, &E.SmoothTunePPM, sizeof(E.SmoothTunePPM));
+			eeprom_write_block(data, &E.SmoothTunePPM, sizeof(E.SmoothTunePPM));
 		}
 		break;
 #endif
@@ -175,13 +176,15 @@ usbFunctionSetup(uchar data[8])
 	usbRequest_t* rq = (usbRequest_t*)data;
     usbMsgPtr = (uchar*)replyBuf;
 
+	replyBuf[0].b0 = 0xff;						// return value 0xff => command not supported 
+
 	switch(rq->bRequest)
 	{
 	case 0:					       				// Return software version number
 		replyBuf[0].w = (VERSION_MAJOR<<8)|(VERSION_MINOR);
 		return 2;
 
-#ifdef INCLUDE_NOT_USE
+#ifdef INCLUDE_NOT_USE_1
 //	case 0:					       				// ECHO value
 //		replyBuf[0].w = rq->wValue.word;		// rq->bRequest identical data[1]!
 //		return 2;
@@ -201,9 +204,14 @@ usbFunctionSetup(uchar data[8])
 		return sizeof(uint8_t);
 
 	case 4:    					   				// set ports 
-		IO_PORT = data[2] & 
-		 ~((1 << USB_CFG_DMINUS_BIT) 
-		 | (1 << USB_CFG_DPLUS_BIT));			// protect USB interface
+#ifdef INCLUDE_ABPF
+		if (!FilterCrossOverOn)
+#endif
+		{
+			IO_PORT = data[2] & 
+			 ~((1 << USB_CFG_DMINUS_BIT) 
+			 | (1 << USB_CFG_DPLUS_BIT));			// protect USB interface
+		}
 		return 0;
 #endif
 
@@ -242,9 +250,8 @@ usbFunctionSetup(uchar data[8])
 						&E.FilterCrossOver[index].w, 
 						sizeof(E.FilterCrossOver[0].w));
 			}
-
-			usbMsgPtr = (uint8_t*)&R.FilterCrossOver;
 		}
+		usbMsgPtr = (uint8_t*)&R.FilterCrossOver;
 		return 4 * sizeof(uint16_t);
 #endif
 
@@ -257,7 +264,7 @@ usbFunctionSetup(uchar data[8])
         return 1;
 
 	case 0x30:							      	// Set frequnecy by register and load Si570
-	case 0x31:									// Write only Si570 registers
+	case 0x31:									// Filler
 	case 0x32:									// Set frequency by value and load Si570
 	case 0x33:									// write new crystal frequency to EEPROM and use it.
 	case 0x34:									// Write new startup frequency to eeprom
@@ -302,12 +309,17 @@ usbFunctionSetup(uchar data[8])
 			R.ChipCrtlData = rq->wValue.bytes[0];
         return 0;
 
-#ifdef INCLUDE_NOT_USE
+#ifdef INCLUDE_NOT_USE_2
 	case 0x50:   						    	// set IO_P1 and read CW key level
-	    if (rq->wValue.bytes[0] == 0)
-			bit_0(IO_PORT, IO_P1);
-		else
-			bit_1(IO_PORT, IO_P1);
+#ifdef INCLUDE_ABPF
+		if (!FilterCrossOverOn)
+#endif
+		{
+		    if (rq->wValue.bytes[0] == 0)
+				bit_0(IO_PORT, IO_P1);
+			else
+				bit_1(IO_PORT, IO_P1);
+		}
 
 		replyBuf[0].b0 = IO_PIN & _BV(IO_P2);
         return sizeof(uint8_t);
@@ -318,7 +330,6 @@ usbFunctionSetup(uchar data[8])
 #endif
 	}
 
-	replyBuf[0].b0 = 0xff;						// return value 0xff => command not supported 
     return 1;
 }
 
@@ -398,4 +409,5 @@ d:/winavr-20081205/bin/../lib/gcc/avr/4.3.2/avr25\libgcc.a(_exit.o)
  * V15.6	4072 bytes (99.4% Full)
  * V15.7	4090 bytes (99.9% Full)
  * V15.8	3984 bytes (97.3% Full)
+ * V15.9	3984 bytes (97.3% Full)
  */
