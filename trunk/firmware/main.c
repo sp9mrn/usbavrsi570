@@ -2,7 +2,7 @@
 //**
 //** Project......: Firmware USB AVR Si570 controler.
 //**
-//** Platform.....: ATtiny45  & Attiny85 @ 16.5 MHz
+//** Platform.....: ATtiny45 or ATtiny85 @ 16.5 MHz
 //**
 //** Licence......: This software is freely available for non-commercial 
 //**                use - i.e. for research and experimentation only!
@@ -41,14 +41,21 @@
 //**                                  Add support for the CW Key_2 in command 0x50 & 0x51.
 //**                                  CW Key always return open if ABPF is enabled (command 0x50 & 0x51)
 //**               V15.11 27/07/2009: BUG in the CalcFreqMulAdd() with a negative subtract value.
-//**								  Change the SetFreq() so that the filter table is set and 
-//**								  after it the subtract multiply is done! (changed in order)
-//**								  Changed the SetFreq() so that cmd 0x3a will return the requested
-//**								  freq and not the Si570 freq. 
+//**                                  Change the SetFreq() so that the filter table is set and 
+//**                                  after it the subtract multiply is done! (changed in order)
+//**                                  Changed the SetFreq() so that cmd 0x3a will return the requested
+//**                                  freq and not the Si570 freq. 
+//**               V15.12 28/08/2009: Added the IBPF settings. Every band, selected with the Filter
+//**                                  cross-over table, holds its own offset/multiply and filter number.
+//**                                  The command 0x41 will return the old I2C address, it only accept
+//**                                  I2C addresses if Index is zero.
+//**                                  Change of the USB Serial number is possible for the last char of 
+//**                                  that string "PE0FKO-0". The "0" can be changed with command 0x43.
+//**                                  
 //**
 //**************************************************************************
 //
-//        ATtiny45
+//        ATtiny45/85
 //        +--+-+--+
 // !RESET |  |_|  | VCC
 //    PB3 |       | PB2
@@ -111,28 +118,46 @@ EEMEM	var_t		E;							// Variables in eeprom
 					{	0xFF					// RC_OSCCAL
 					,	DEVICE_XTAL				// FreqXtal
 					,	0x03866666				// Freq at startup, 4.0 * 7.050 * _2(21)
-#ifdef INCLUDE_FREQ_SM
-					,	0.000 * _2(21)			// Freq subtract value is 0.0MHz (11.21bits)
-					,	1.000 * _2(21)			// Freq multiply value os 1.0    (11.21bits)
-#endif
-#ifdef INCLUDE_SMOOTH
+#if INCLUDE_SMOOTH
 					,	3500					// SmoothTunePPM
 #endif
-#ifdef INCLUDE_ABPF
+#if INCLUDE_FREQ_SM
+					,	0.0 * _2(21)			// Freq subtract value is 0.0MHz (11.21bits)
+					,	1.0 * _2(21)			// Freq multiply value os 1.0    (11.21bits)
+#endif
+#if INCLUDE_ABPF | INCLUDE_IBPF
 					, {	{  4.0 * 4.0 * _2(5) }	// Default filter cross over
 					,	{  8.0 * 4.0 * _2(5) }	// frequnecy for softrock V9
 					,	{ 16.0 * 4.0 * _2(5) }	// BPF. Four value array.
 					,	{ true } }				// ABPF is default enabled
+#endif											// Filter control on/off [3]
+#if INCLUDE_IBPF
+					, 	{	0,            1,            2,            3 }
+					,	{	0.0 * _2(21), 0.0 * _2(21), 0.0 * _2(21), 0.0 * _2(21) }
+					,	{	1.0 * _2(21), 1.0 * _2(21), 1.0 * _2(21), 1.0 * _2(21) }
+#endif
+#if INCLUDE_SN
+					,	'0'						// Default USB SerialNumber ID.
 #endif
 					,	DEVICE_I2C				// I2C address or ChipCrtlData
 					};
 
 				Si570_t		Si570_Data;			// Si570 register values
 				sint16_t	replyBuf[4];		// USB Reply buffer
+static	uint8_t			bIndex;
 
 EMPTY_INTERRUPT( __vector_default );			// Redirect all unused interrupts to reti
 
 #include "FreqFromSi570.c"						// Include code is small size
+#include "Temperature.c"						// Include code is small size
+
+#if INCLUDE_SN
+int	usbDescriptorStringSerialNumber[] = {
+    USB_STRING_DESCRIPTOR_HEADER(USB_CFG_SERIAL_NUMBER_LEN),
+    USB_CFG_SERIAL_NUMBER
+};
+#endif
+
 
 /* ------------------------------------------------------------------------- */
 /* ------------------------ interface to USB driver ------------------------ */
@@ -142,39 +167,50 @@ uchar usbFunctionWrite(uchar *data, uchar len) //sends len bytes to SI570
 {
 	SWITCH_START(usbRequest)
 
-	SWITCH_CASE(0x30)
-		if (len == 6) {
+	SWITCH_CASE(CMD_SET_FREQ_REG)
+		if (len == sizeof(Si570_t)) {
 			CalcFreqFromRegSi570(data);			// Calc the freq from the Si570 register value
 			SetFreq(*(uint32_t*)data);			// and call the SetFreq(..) with the freq!
 		}
 
-#ifdef  INCLUDE_FREQ_SM
-	SWITCH_CASE(0x31)							// Write the frequency subtract multiply to the eeprom
-		if (len == 8) {
+#if  INCLUDE_FREQ_SM
+	SWITCH_CASE(CMD_SET_LO_SM)					// Write the frequency subtract multiply to the eeprom
+		if (len == 2*sizeof(R.FreqSub)) {
 			memcpy(&R.FreqSub, data, 2*sizeof(uint32_t));
 			eeprom_write_block(data, &E.FreqSub, 2*sizeof(uint32_t));
 		}
 #endif
 
-	SWITCH_CASE(0x32)							// Set frequency by value and load Si570
-		if (len == 4) {
+#if  INCLUDE_IBPF
+	SWITCH_CASE(CMD_SET_LO_SM)					// Write the frequency subtract multiply to the eeprom
+		if (len == 2*sizeof(uint32_t)) {
+			bIndex &= MAX_BAND-1;
+			memcpy(&R.BandSub[bIndex], &data[0], sizeof(uint32_t));
+			eeprom_write_block(&data[0], &E.BandSub[bIndex], sizeof(uint32_t));
+			memcpy(&R.BandMul[bIndex], &data[4], sizeof(uint32_t));
+			eeprom_write_block(&data[4], &E.BandMul[bIndex], sizeof(uint32_t));
+		}
+#endif
+
+	SWITCH_CASE(CMD_SET_FREQ)					// Set frequency by value and load Si570
+		if (len == sizeof(uint32_t)) {
 			SetFreq(*(uint32_t*)data);
 		}
 
-	SWITCH_CASE(0x33)							// write new crystal frequency to EEPROM and use it.
-		if (len == 4) {
+	SWITCH_CASE(CMD_SET_XTAL)					// write new crystal frequency to EEPROM and use it.
+		if (len == sizeof(R.FreqXtal)) {
 			R.FreqXtal = *(uint32_t*)data;
 			eeprom_write_block(data, &E.FreqXtal, sizeof(E.FreqXtal));
 		}
 
-	SWITCH_CASE(0x34)							// Write new startup frequency to eeprom
-		if (len == 4) {
+	SWITCH_CASE(CMD_SET_STARTUP)				// Write new startup frequency to eeprom
+		if (len == sizeof(R.Freq)) {
 			eeprom_write_block(data, &E.Freq, sizeof(E.Freq));
 		}
 
-#ifdef  INCLUDE_SMOOTH
-	SWITCH_CASE(0x35)							// Write new smooth tune to eeprom and use it.
-		if (len == 2) {
+#if  INCLUDE_SMOOTH
+	SWITCH_CASE(CMD_SET_PPM)					// Write new smooth tune to eeprom and use it.
+		if (len == sizeof(R.SmoothTunePPM)) {
 			R.SmoothTunePPM = *(uint16_t*)data;
 			eeprom_write_block(data, &E.SmoothTunePPM, sizeof(E.SmoothTunePPM));
 		}
@@ -185,6 +221,7 @@ uchar usbFunctionWrite(uchar *data, uchar len) //sends len bytes to SI570
 	return 1;
 }
 
+
 usbMsgLen_t 
 usbFunctionSetup(uchar data[8])
 {
@@ -194,35 +231,44 @@ usbFunctionSetup(uchar data[8])
     usbMsgPtr = (uchar*)replyBuf;
 	replyBuf[0].b0 = 0xff;						// return value 0xff => command not supported 
 
+
 	SWITCH_START(usbRequest)
 
-	SWITCH_CASE(0x00)							// Return software version number
+
+	SWITCH_CASE(CMD_GET_VERSION)				// Return software version number
 		replyBuf[0].w = (VERSION_MAJOR<<8)|(VERSION_MINOR);
 		return sizeof(uint16_t);
 
-//	SWITCH_CASE(0x00)							// ECHO value
+
+//	SWITCH_CASE(CMD_ECHO_WORD)					// ECHO value
 //		replyBuf[0].w = rq->wValue.word;		// rq->bRequest identical data[1]!
 //		return sizeof(uint16_t);
 
-#ifdef  INCLUDE_NOT_USED
-	SWITCH_CASE(0x01)							// set port directions
+
+#if  INCLUDE_NOT_USED
+	SWITCH_CASE(CMD_SET_DDR)					// set port directions
 		IO_DDR = data[2] & 
 		 ~((1 << USB_CFG_DMINUS_BIT) 
 		 | (1 << USB_CFG_DPLUS_BIT));			// protect USB interface
 		return 0;
 #endif
 
-	SWITCH_CASE(0x02)							// read ports (pe0fko changed)
+
+#if  INCLUDE_NOT_USED
+	SWITCH_CASE(CMD_GET_PIN)					// read ports (pe0fko changed)
 		replyBuf[0].b0 = IO_PIN;
 		return sizeof(uint8_t);
+#endif
 
-#ifdef  INCLUDE_NOT_USED
-	SWITCH_CASE(0x03)							// read port states 
+
+#if  INCLUDE_NOT_USED
+	SWITCH_CASE(CMD_GET_PORT)					// read port states 
 		replyBuf[0].b0 = IO_PORT;
 		return sizeof(uint8_t);
 
-	SWITCH_CASE(0x04)							// set ports 
-#ifdef  INCLUDE_ABPF
+
+	SWITCH_CASE(CMD_SET_PORT)					// set ports 
+#if  INCLUDE_ABPF | INCLUDE_IBPF
 		if (!FilterCrossOverOn)
 #endif
 		{
@@ -233,11 +279,13 @@ usbFunctionSetup(uchar data[8])
 		return 0;
 #endif
 
-	SWITCH_CASE(0x0F)							// Watchdog reset
+
+	SWITCH_CASE(CMD_REBOOT)						// Watchdog reset
 		while(true) ;
 
-	SWITCH_CASE(0x15)							// Set IO port with mask and data bytes
-#ifdef  INCLUDE_ABPF
+
+	SWITCH_CASE(CMD_SET_IO)						// Set IO port with mask and data bytes
+#if  INCLUDE_ABPF | INCLUDE_IBPF
 		if (!FilterCrossOverOn)
 #endif
 		{	// SoftRock V9 only had 2 I/O pins from tiny45 available.
@@ -251,12 +299,13 @@ usbFunctionSetup(uchar data[8])
 		replyBuf[0].w = (IO_PIN>>IO_BIT_START) & IO_BIT_MASK;
         return sizeof(uint16_t);
 
-	SWITCH_CASE(0x16)							// Read I/O bits
+	SWITCH_CASE(CMD_GET_IO)						// Read I/O bits
 		replyBuf[0].w = (IO_PIN>>IO_BIT_START) & IO_BIT_MASK;
         return sizeof(uint16_t);
 
-#ifdef  INCLUDE_ABPF
-	SWITCH_CASE(0x17)							// Read and Write the Filter Cross over point's and use it.
+
+#if  INCLUDE_ABPF | INCLUDE_IBPF
+	SWITCH_CASE(CMD_SET_FILTER)					// Read and Write the Filter Cross over point's and use it.
 		uint8_t index = rq->wIndex.bytes[0];
 
 		if (rq->wIndex.bytes[1] == 0) {
@@ -281,71 +330,128 @@ usbFunctionSetup(uchar data[8])
 		}
 #endif
 
-#ifdef  INCLUDE_SI570
-	SWITCH_CASE(0x20)							// [DEBUG] Write byte to Si570 register
+
+#if  INCLUDE_SI570
+	SWITCH_CASE(CMD_SET_SI570)					// [DEBUG] Write byte to Si570 register
 		Si570CmdReg(rq->wValue.bytes[1], rq->wIndex.bytes[0]);
-#ifdef  INCLUDE_SMOOTH
+#if  INCLUDE_SMOOTH
 		FreqSmoothTune = 0;						// Next SetFreq call no smoodtune
 #endif
 		replyBuf[0].b0 = I2CErrors;				// return I2C transmission error status
         return sizeof(uint8_t);
 #endif
 
-	SWITCH_CASE6(0x30,0x31,0x32,0x33,0x34,0x35)
+
+	SWITCH_CASE6(CMD_SET_FREQ_REG,CMD_SET_LO_SM,CMD_SET_FREQ,CMD_SET_XTAL,CMD_SET_STARTUP,CMD_SET_PPM)
 		//	0x30						      	// Set frequnecy by register and load Si570
 		//	0x31								// Write the FREQ mul & add to the eeprom
 		//	0x32								// Set frequency by value and load Si570
 		//	0x33								// write new crystal frequency to EEPROM and use it.
 		//	0x34								// Write new startup frequency to eeprom
 		//	0x35								// Write new smooth tune to eeprom and use it.
+		bIndex = rq->wIndex.bytes[0];
 		return USB_NO_MSG;						// use usbFunctionWrite to transfer data
 
-#ifdef  INCLUDE_FREQ_SM
+
+#if  INCLUDE_FREQ_SM
 	SWITCH_CASE(0x39)							// Return the frequency subtract multiply
 		usbMsgPtr = (uint8_t*)&R.FreqSub;
         return 2 * sizeof(uint32_t);
 #endif
 
-	SWITCH_CASE(0x3A)							// Return running frequnecy
+
+#if  INCLUDE_IBPF
+	SWITCH_CASE(CMD_GET_LO_SM)					// Return the frequency subtract multiply
+		uint8_t band = rq->wIndex.bytes[0] & (MAX_BAND-1);	// 0..3 only
+		memcpy(&replyBuf[0].w, &R.BandSub[band], sizeof(uint32_t));
+		memcpy(&replyBuf[2].w, &R.BandMul[band], sizeof(uint32_t));
+        return 2 * sizeof(uint32_t);
+#endif
+
+
+	SWITCH_CASE(CMD_GET_FREQ)					// Return running frequnecy
 		usbMsgPtr = (uint8_t*)&R.Freq;
         return sizeof(uint32_t);
 
-#ifdef  INCLUDE_SMOOTH
-	SWITCH_CASE(0x3B)							// Return smooth tune ppm value
+
+#if  INCLUDE_SMOOTH
+	SWITCH_CASE(CMD_GET_PPM)					// Return smooth tune ppm value
 		usbMsgPtr = (uint8_t*)&R.SmoothTunePPM;
         return sizeof(uint16_t);
 #endif
 
-	SWITCH_CASE(0x3C)							// Return the startup frequency
+
+	SWITCH_CASE(CMD_GET_STARTUP)				// Return the startup frequency
 		eeprom_read_block(replyBuf, &E.Freq, sizeof(E.Freq));
 		return sizeof(uint32_t);
 
-	SWITCH_CASE(0x3D)							// Return the XTal frequnecy
+
+	SWITCH_CASE(CMD_GET_XTAL)					// Return the XTal frequnecy
 		usbMsgPtr = (uint8_t*)&R.FreqXtal;
         return sizeof(uint32_t);
 
-//	SWITCH_CASE(0x3E)							// read out calculated frequency control registers
+
+//	SWITCH_CASE(CMD_GET_REGS)					// read out calculated frequency control registers
 //		usbMsgPtr = (uint8_t*)&Si570_Data;
 //		return sizeof(Si570_t);
 
-	SWITCH_CASE(0x3F)							// read out chip frequency control registers
+
+	SWITCH_CASE(CMD_GET_SI570)					// read out chip frequency control registers
 		return GetRegFromSi570();				// read all registers in one block to replyBuf[]
 
-#ifdef  INCLUDE_I2C
-	SWITCH_CASE(0x40)							// return I2C transmission error status
+
+#if  INCLUDE_I2C
+	SWITCH_CASE(CMD_GET_I2C_ERR)				// return I2C transmission error status
 		replyBuf[0].b0 = I2CErrors;
 		return sizeof(uint8_t);
 #endif
 
-	SWITCH_CASE(0x41)							// Set the new i2c address or factory default (pe0fko: function changed)
-		if (rq->wValue.bytes[0] != 0xFF)
-			R.ChipCrtlData = rq->wValue.bytes[0];
-		eeprom_write_byte(&E.ChipCrtlData, rq->wValue.bytes[0]);
-        return 0;
 
-	SWITCH_CASE2(0x50,0x51)						// set IO_P1 (cmd=0x50) and read CW key level (cmd=0x50 & 0x51)
+	SWITCH_CASE(CMD_SET_I2C_ADDR)				// Set the new i2c address or factory default (pe0fko: function changed)
+		replyBuf[0].b0 = R.ChipCrtlData;		// Return the old I2C address (V15.12)
+		if (rq->wValue.bytes[0] != 0) {			// Only set if Value != 0
+			R.ChipCrtlData = rq->wValue.bytes[0];
+			eeprom_write_byte(&E.ChipCrtlData, R.ChipCrtlData);
+		}
+		return sizeof(R.ChipCrtlData);
+
+
+#if INCLUDE_TEMP
+	SWITCH_CASE(CMD_GET_CPU_TEMP)				// Read the temperature mux 0
+		replyBuf[0].w = GetTemperature();
+		return sizeof(uint16_t);
+#endif
+
+
+#if INCLUDE_SN
+	SWITCH_CASE(CMD_GET_USB_ID)					// Get/Set the USB SeialNumber ID
+		replyBuf[0].b0 = R.SerialNumber;
+		if (rq->wValue.bytes[0] != 0) {			// Only set if Value != 0
+			R.SerialNumber = rq->wValue.bytes[0];
+			eeprom_write_byte(&E.SerialNumber, R.SerialNumber);
+		}
+		return sizeof(R.SerialNumber);
+#endif
+
+
+#if INCLUDE_IBPF
+	SWITCH_CASE(CMD_SET_RX_BAND_FILTER)			// Set the Filters for band 0..3
+		uint8_t band = rq->wIndex.bytes[0] & (MAX_BAND-1);	// 0..3 only
+		uint8_t filter = rq->wValue.bytes[0];
+		eeprom_write_byte(&E.Band2Filter[band], filter);
+		R.Band2Filter[band] = filter;
+		usbMsgPtr = (uint8_t*)R.Band2Filter;	// Length from 
+        return sizeof(R.Band2Filter);
+
+	SWITCH_CASE(CMD_GET_RX_BAND_FILTER)			// Read the Filters for band 0..3
+		usbMsgPtr = (uint8_t*)R.Band2Filter;	// Length from 
+        return sizeof(R.Band2Filter);
+#endif
+
+
+	SWITCH_CASE2(CMD_SET_USRP1,CMD_GET_CW_KEY)	// set IO_P1 (cmd=0x50) and read CW key level (cmd=0x50 & 0x51)
 		replyBuf[0].b0 = (_BV(IO_P2) | _BV(BIT_SDA));	// CW Key 1 (PB4) & 2 (PB1 + i2c SDA)
-#ifdef  INCLUDE_ABPF
+#if  INCLUDE_ABPF | INCLUDE_IBPF
 		if (!FilterCrossOverOn)
 #endif
 		{
@@ -390,6 +496,7 @@ dotInit3(void)
 int __attribute__((noreturn)) 
 main(void)
 {
+
 	// Check if eeprom is initialized, use only the field ChipCrtlData.
 	if (eeprom_read_byte(&E.ChipCrtlData) == 0xFF)
 		eeprom_write_block(&R, &E, sizeof(E));	// Initialize eeprom to "factory defaults".
@@ -400,6 +507,12 @@ main(void)
 		OSCCAL = R.RC_OSCCAL;
 
 	SI570_OffLine = true;						// Si570 is offline, not initialized
+
+#if INCLUDE_SN
+	// Update the USB SerialNumber string with the correct ID from eprom.
+	usbDescriptorStringSerialNumber[
+		sizeof(usbDescriptorStringSerialNumber)/sizeof(int)-1] = R.SerialNumber;
+#endif
 
 	DeviceInit();								// Initialize the Si570 device.
 
@@ -418,22 +531,15 @@ main(void)
 	    wdt_reset();
 	    usbPoll();
 
-#ifdef  INCLUDE_SI570
+#if  INCLUDE_SI570
 		DeviceInit();
 #endif
 	}
 }
 
 /*
-Compile WinAVR error 20081205 version:
-d:/winavr-20081205/bin/../lib/gcc/avr/4.3.2/../../../../avr/lib/avr25/crttn45.o:(.init9+0x2): 
-relocation truncated to fit: R_AVR_13_PCREL against symbol `exit' defined in .fini9 section in 
-d:/winavr-20081205/bin/../lib/gcc/avr/4.3.2/avr25\libgcc.a(_exit.o)
-*/
-
-
-/*
  * Compiler: WinAVR-20071221
+ * Chip: ATtiny45
  * V14		3866 bytes (94.4% Full)
  * V15.1	3856 bytes (94.1% Full)
  * V15.2	3482 bytes (85.0% Full)
@@ -446,4 +552,7 @@ d:/winavr-20081205/bin/../lib/gcc/avr/4.3.2/avr25\libgcc.a(_exit.o)
  * V15.9	3984 bytes (97.3% Full)
  * V15.10	4018 bytes (98.1% Full)
  * V15.11	4094 bytes (100.% Full)
+ * Compiler: WinAVR-20090313
+ * Chip: ATtiny85
+ * V15.12	5112 bytes (62.4% Full)
  */

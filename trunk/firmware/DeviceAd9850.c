@@ -20,7 +20,7 @@
 
 #include "main.h"
 
-#ifdef INCLUDE_AD9850
+#if INCLUDE_AD9850
 
 #include "CalcVFO.c"						// Include code is small size
 
@@ -151,7 +151,7 @@ AD9850_LoadFreq(uint32_t freq)
 void
 SetFreq(uint32_t freq)		// frequency [MHz] * 2^21
 {
-#ifdef INCLUDE_FREQ_SM
+#if INCLUDE_FREQ_SM
 	freq = CalcFreqMulAdd(freq);
 #endif
 
@@ -159,7 +159,7 @@ SetFreq(uint32_t freq)		// frequency [MHz] * 2^21
 
 	AD9850_LoadFreq(freq);
 
-#ifdef INCLUDE_ABPF
+#if INCLUDE_ABPF
 	SetFilter();
 #endif
 }

@@ -24,13 +24,13 @@
 
 #include "main.h"
 
-#ifdef INCLUDE_SI570
+#if INCLUDE_SI570
 
 register uint16_t	Si570_N		 asm("r2");	// Total division (N1 * HS_DIV)
 register uint8_t	Si570_N1	 asm("r4");	// The slow divider
 register uint8_t	Si570_HS_DIV asm("r5");	// The high speed divider
 
-#ifdef INCLUDE_SMOOTH
+#if INCLUDE_SMOOTH
 		uint32_t	FreqSmoothTune;			// The smooth tune center frequency
 #endif
 
@@ -180,7 +180,7 @@ Si570CalcRFREQ(uint32_t freq)
 //	: "r0"                          // r0 -> Tempory register
 	);
 
-#ifdef INCLUDE_CHECK_DSO_MAX
+#if INCLUDE_CHECK_DSO_MAX
 	// Check if DCO is lower than the Si570 max specied.
 	// The low 3 bit's are not used, so the error is 8MHz
 	// DCO = Freq * sN (calculated above)
@@ -282,7 +282,7 @@ Si570CalcRFREQ(uint32_t freq)
 }
 
 
-#ifdef INCLUDE_SMOOTH
+#if INCLUDE_SMOOTH
 
 static uint8_t
 Si570_Small_Change(uint32_t current_Frequency)
@@ -315,10 +315,59 @@ Si570_Small_Change(uint32_t current_Frequency)
 
 #endif
 
-void
-SetFreq(uint32_t freq)				// frequency [MHz] * 2^21
+#if INCLUDE_IBPF
+
+static uint8_t
+GetFreqBand(uint32_t freq)
 {
-	R.Freq = freq;
+	uint8_t n;
+	sint32_t Freq;
+
+	Freq.dw = freq;
+
+	for(n=0; n < MAX_BAND-1; ++n)
+		if (Freq.w1.w < R.FilterCrossOver[n].w)
+			return n;
+
+	return MAX_BAND-1;
+}
+
+void
+SetFilter(uint8_t filter)
+{
+	if (FilterCrossOverOn)
+	{
+		bit_1(IO_DDR, IO_P1);
+		bit_1(IO_DDR, IO_P2);
+
+		if (filter & 0x01)
+			bit_1(IO_PORT, IO_P1);
+		else
+			bit_0(IO_PORT, IO_P1);
+
+		if (filter & 0x02)
+			bit_1(IO_PORT, IO_P2);
+		else
+			bit_0(IO_PORT, IO_P2);
+	}
+}
+
+#endif
+
+void
+SetFreq(uint32_t freq)		// frequency [MHz] * 2^21
+{
+	R.Freq = freq;			// Save the asked freq
+
+#if INCLUDE_IBPF
+
+	uint8_t band = GetFreqBand(freq);
+
+	freq = CalcFreqMulAdd(freq, R.BandSub[band], R.BandMul[band]);
+
+	SetFilter(R.Band2Filter[band]);
+
+#endif
 
 #ifdef INCLUDE_ABPF
 	if (FilterCrossOverOn)
@@ -354,11 +403,13 @@ SetFreq(uint32_t freq)				// frequency [MHz] * 2^21
 	}
 #endif
 
-#ifdef INCLUDE_FREQ_SM
-	freq = CalcFreqMulAdd(freq);
+#if INCLUDE_FREQ_SM
+
+	freq = CalcFreqMulAdd(freq, R.FreqSub, R.FreqMul);
+
 #endif
 
-#ifdef INCLUDE_SMOOTH
+#if INCLUDE_SMOOTH
 
 	if ((R.SmoothTunePPM != 0) && Si570_Small_Change(freq))
 	{
@@ -393,7 +444,7 @@ DeviceInit(void)
 	{
 		if (SI570_OffLine)
 		{
-#ifdef INCLUDE_SMOOTH
+#if INCLUDE_SMOOTH
 			FreqSmoothTune = 0;				// Next SetFreq call no smoodtune
 #endif
 			SetFreq(R.Freq);
