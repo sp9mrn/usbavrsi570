@@ -2,7 +2,7 @@
 **
 ** Project......: Firmware USB AVR Si570 controler.
 **
-** Platform.....: ATtiny45  & Attiny85 @ 16.5 MHz
+** Platform.....: ATtiny45
 **
 ** Licence......: This software is freely available for non-commercial 
 **                use - i.e. for research and experimentation only!
@@ -11,7 +11,7 @@
 **
 ** Programmer...: F.W. Krom, PE0FKO.
 **                Thanks to Tom Baier DG8SAQ for the initial program.
-**                Thanks to Alex Lee and Loftur Jónasson for command extentions.
+**                Thanks to Alex Lee for the command 0x17 description.
 ** 
 ** Description..: Control the Si570 Freq. PLL chip over the USB port.
 **
@@ -43,14 +43,21 @@
 **                                  Add support for the CW Key_2 in command 0x50 & 0x51.
 **                                  CW Key always return open if ABPF is enabled (command 0x50 & 0x51)
 **               V15.11 27/07/2009: BUG in the CalcFreqMulAdd() with a negative subtract value.
-**								  	Change the SetFreq() so that the filter table is set and 
-**								  	after it the subtract multiply is done! (changed in order)
-**								  	Changed the SetFreq() so that cmd 0x3a will return the requested
-**								  	freq and not the Si570 freq. 
+**                                  Change the SetFreq() so that the filter table is set and 
+**                                  after it the subtract multiply is done! (changed in order)
+**                                  Changed the SetFreq() so that cmd 0x3a will return the requested
+**                                  freq and not the Si570 freq. 
+**               V15.12 28/08/2009: Added the IBPF settings. Every band, selected with the Filter
+**                                  cross-over table, holds its own offset/multiply and filter number.
+**                                  The command 0x41 will return the old I2C address, it only accept
+**                                  I2C addresses if Index is zero.
+**                                  Change of the USB Serial number is possible for the last char of 
+**                                  that string "PE0FKO-0". The "0" can be changed with command 0x43.
 **
 **************************************************************************
 
 Compiler: WinAVR-20071221
+Chip: ATtiny45 (4Kb prom)
 V14			3866 bytes (94.4% Full)
 V15.1		3856 bytes (94.1% Full)
 V15.2		3482 bytes (85.0% Full)
@@ -63,6 +70,9 @@ V15.8		3984 bytes (97.3% Full)
 V15.9		3984 bytes (97.3% Full)
 V15.10		4018 bytes (98.1% Full)
 V15.11		4094 bytes (100.% Full)
+Compiler: WinAVR-20090313
+Chip: ATtiny85 (8Kb prom)
+V15.12		5112 bytes (62.4% Full)
 
 
 Fuse bit information:
@@ -136,6 +146,10 @@ V15.10
 | 15 |   | * | I | Set IO port with mask and data bytes, and perform cmd 0x16
 | 16 |   | * | I | Return the I/O pin value
 | 17 |   | * | I | Read the Filter cross over points and set one point
+| 18 |   | * | I | Set the RX Band Pass Filter Address for one band: 0..3
+| 19 |   | * | I | Read the RX Band Pass Filter Address for one band: 0..3
+| 1A |   |   | I | Set the TX Low Pass Filter Address for one band: 0..7 (MOBO)
+| 1B |   |   | I | Read the TX Low Pass Filter Address for one band: 0..7 (MOBO)
 | 20 | * | * | I | Write byte to Si570 register
 | 21 | * |   | I | [DO NOT USE] SI570: read byte to register index (Use command 0x3F)
 | 22 | * |   | I | [DO NOT USE] SI570: freeze NCO (Use command 0x20)
@@ -156,6 +170,8 @@ V15.10
 | 40 | * | * | I | Return I2C transmission error status
 | 41 | * |   | I | [DO NOT USE] set/reset init freq status
 | 41 |   | * | I | Set the new i2c address.
+| 42 |   | * | I | CPU Temperaure
+| 43 |   | * | I | Change USB SerialNumber ID
 | 50 | * | * | I | Set USR_P1 and get cw-key status
 | 51 | * | * | I | Read SDA and CW key level simultaneously
 
@@ -228,7 +244,7 @@ Parameters:
     requesttype:    USB_ENDPOINT_IN
     request:         0x00
     value:           0x0E00
-    index:           Don't care
+    index:           0
     bytes:           Version word variable
     size:            2
 
@@ -265,8 +281,8 @@ Restart the board (done by Watchdog timer).
 Parameters:
     requesttype:    USB_ENDPOINT_IN
     request:         0x0F
-    value:           Don't care
-    index:           Don't care
+    value:           0
+    index:           0
     bytes:           NULL
     size:            0
 
@@ -316,8 +332,8 @@ Code sample:
 Parameters:
     requesttype:    USB_ENDPOINT_IN
     request:         0x16
-    value:           Don't care
-    index:           Don't care
+    value:           0
+    index:           0
     bytes:           PIN status (returned)
     size:            2
 
@@ -408,6 +424,43 @@ Parameters: Enable / disable the filter
    size:            filter_number_of_bytes
 
 
+Command 0x18:
+-------------
+Set the RX Band Pass Filter Address for one band: 0..3
+
+Parameters:
+    requesttype:    USB_ENDPOINT_IN
+    request:         0x18
+    value:           Filter for the band
+    index:           Band number (0..3)
+    bytes:           pointer 4 byte array, Band2Filter table
+    size:            4
+
+
+Command 0x19:
+-------------
+Read the RX Band Pass Filter Address for one band: 0..3
+
+Parameters:
+    requesttype:    USB_ENDPOINT_IN
+    request:         0x19
+    value:           0
+    index:           0
+    bytes:           pointer 4 byte array, Band2Filter table
+    size:            4
+
+
+Command 0x1A:
+-------------
+Set the TX Low Pass Filter Address for one band: 0..7 (MOBO)
+Not implemented
+
+
+Command 0x1B:
+-------------
+Read the TX Low Pass Filter Address for one band: 0..7 (MOBO)
+Not implemented
+
 
 Command 0x20:
 -------------
@@ -440,8 +493,8 @@ Default:    None
 Parameters:
     requesttype:    USB_ENDPOINT_OUT
     request:         0x30
-    value:           I2C Address (only for the DG8SAQ firmware), Don't care
-    index:           7 (only for the DG8SAQ firmware), Don't care
+    value:           I2C Address (only for the DG8SAQ firmware), 0
+    index:           7 (only for the DG8SAQ firmware), 0
     bytes:           pointer 48 bits register
     size:            6
 
@@ -459,8 +512,8 @@ Default:    None
 Parameters:
     requesttype:    USB_ENDPOINT_OUT
     request:         0x31
-    value:           Don't care
-    index:           Don't care
+    value:           0
+    index:           0
     bytes:           pointer 2 * 32 bits interger
     size:            8
 
@@ -491,8 +544,8 @@ Default:    None
 Parameters:
     requesttype:    USB_ENDPOINT_OUT
     request:         0x32
-    value:           Don't care
-    index:           Don't care
+    value:           0
+    index:           0
     bytes:           pointer 32 bits integer
     size:            4
 
@@ -516,8 +569,8 @@ Default:    114.285 MHz
 Parameters:
     requesttype:    USB_ENDPOINT_OUT
     request:         0x33
-    value:           Don't care
-    index:           Don't care
+    value:           0
+    index:           0
     bytes:           pointer 32 bits integer
     size:            4
 
@@ -542,8 +595,8 @@ Default:    4 * 7.050 MHz
 Parameters:
     requesttype:    USB_ENDPOINT_OUT
     request:         0x34
-    value:           Don't care
-    index:           Don't care
+    value:           0
+    index:           0
     bytes:           pointer 32 bits integer
     size:            4
 
@@ -566,8 +619,8 @@ Default:    3500 PPM
 Parameters:
     requesttype:    USB_ENDPOINT_OUT
     request:         0x35
-    value:           Don't care
-    index:           Don't care
+    value:           0
+    index:           0
     bytes:           pointer 16 bits integer
     size:            2
 
@@ -581,23 +634,25 @@ Code sample:
 Command 0x39:
 -------------
 Return the frequency subtract multiply values.
-
+V15.12: The index is tha band for with the values are working.
 
 Default:    subtract = 0.0, multiply = 1.0
 
 Parameters:
     requesttype:    USB_ENDPOINT_IN
     request:         0x39
-    value:           Don't care
-    index:           Don't care
+    value:           0
+    index:           0	or	Index into band
     bytes:           pointer 2 * 32 bits integer
     size:            8
 
 Code sample:
     uint32_t iSM[2];
 	double sub, mul;
+	uint8_t iBand;
 
-    r = usbCtrlMsgIN(0x39, 0, 0, (char *)iSM, sizeof(iSM));
+	iBand = 0;
+    r = usbCtrlMsgIN(0x39, 0, iBand, (char *)iSM, sizeof(iSM));
     if (r != sizeof(iSM)) Error
 
 	sub = (double)(int32_t)iSM[0] / (1UL << 21); // Signed value
@@ -606,16 +661,14 @@ Code sample:
 
 Command 0x3A:
 -------------
-Return requested frequency of the device. It is not always the Si570 running frequency
-because the running frequency will be calculated with the offset subtract and multiply
-from the requested frequency.
+Return actual frequency of the device.
 The frequency is formatted in MHz as a 11.21 bits value.
 
 Parameters:
     requesttype:    USB_ENDPOINT_IN
     request:         0x3A
-    value:           Don't care
-    index:           Don't care
+    value:           0
+    index:           0
     bytes:           pointer 32 bits integer
     size:            4
 
@@ -639,8 +692,8 @@ Default:    3500 PPM
 Parameters:
     requesttype:    USB_ENDPOINT_IN
     request:         0x3B
-    value:           Don't care
-    index:           Don't care
+    value:           0
+    index:           0
     bytes:           pointer 16 bits integer
     size:            2
 
@@ -660,8 +713,8 @@ Default:    4 * 7.050 MHz
 Parameters:
     requesttype:    USB_ENDPOINT_IN
     request:         0x3C
-    value:           Don't care
-    index:           Don't care
+    value:           0
+    index:           0
     bytes:           pointer 32 bits integer
     size:            4
 
@@ -683,8 +736,8 @@ Default:    114.285 MHz
 Parameters:
     requesttype:    USB_ENDPOINT_IN
     request:         0x3D
-    value:           Don't care
-    index:           Don't care
+    value:           0
+    index:           0
     bytes:           pointer 32 bits integer
     size:            4
 
@@ -706,15 +759,16 @@ Default:    None
 Parameters:
     requesttype:     USB_ENDPOINT_IN
     request:         0x3F
-    value:           Don't care
-    index:           Don't care
+    value:           0
+    index:           0
     bytes:           pointer 6 byte register array
     size:            6
 
 
 Command 0x41:
 -------------
-Set a new I2C address for the Si570 chip.
+Set a new I2C address for the Si570 chip and return the old I2C address.
+If the value is not zero the I2C address will be writen to eeprom and the old value is always returned, 
 The function can also be used to reset the device to "factory default" by writing the
 value 255. After a restart the device will initialize to all the default values.
 
@@ -723,10 +777,37 @@ Default:    0x55 (85 decimal)
 Parameters:
     requesttype:    USB_ENDPOINT_IN
     request:         0x41
-    value:           I2C address or 255
+    value:           I2C address or 255 [byte]
     index:           0
-    bytes:           NULL
-    size:            0
+    bytes:           pointer 1 byte I2C address
+    size:            1
+
+
+Command 0x42:
+-------------
+Get CPU Temperaure from the attiny[48]5
+
+Parameters:
+    requesttype:    USB_ENDPOINT_IN
+    request:         0x42
+    value:           0
+    index:           0
+    bytes:           pointer 2 bytes ADC temperatur value
+    size:            2
+
+
+Command 0x43:
+-------------
+Set and return the USB SerialNumber ID. The USB SerialNumber "PE0FKO-0" can be changed only for the
+last char "0". If the value is not zero the ID char will be writen to eeprom and the old value is always returned, 
+
+Parameters:
+    requesttype:    USB_ENDPOINT_IN
+    request:         0x43
+    value:           New ID char (>0) [byte]
+    index:           0
+    bytes:           pointer 1 byte ID address
+    size:            1
 
 
 Command 0x50:
@@ -762,4 +843,68 @@ Parameters:
     bytes:           pointer to 1 byte variable CW Key's
     size:            1
 
+
+Command 0x55:
+-------------
+Set the Band Pass Filter Address for one band: 0, 1, 2... 7
+Returns all 8 BPF address values
+Note that the Mobo 4.3 only has 3 bits available for BPF Address output,
+higher bits are masked out.
+
+Parameters:
+   requesttype:    USB_ENDPOINT_IN
+   request:         0x55
+   value:           New Input Address Byte Value
+   index:           Frequency Band 0 - 7 for new Input Address Byte value
+   bytes:           pointer to 8 bytes, containing all BPF address values
+   size:            8
+
+
+Command 0x56:
+-------------
+Read the Band Pass Filter Addresses for bands 0, 1, 2... 7
+Returns all 8 BPF address values
+Note that the Mobo 4.3 only has 3 bits available for BPF Address output,
+higher bits are masked out.
+
+Parameters:
+   requesttype:    USB_ENDPOINT_IN
+   request:         0x56
+   value:           Don't care
+   index:           Don't care
+   bytes:           pointer to 8 bytes, containing all BPF address values
+   size:            8
+
+
+Command 0x57:
+-------------
+Set the TX Low Pass Filter Address for one band: 0, 1, 2... 7
+Returns all 8 LPF address values
+
+
+Parameters:
+   requesttype:    USB_ENDPOINT_IN
+   request:         0x57
+   value:           New Input Address Byte Value
+   index:           Frequency Band 0 - 7 for new Input Address Byte value
+   bytes:           pointer to 8 bytes, containing all BPF address values
+   size:            8
+
+
+Command 0x58:
+-------------
+Read the TX Low Pass Filter Addresses for LPF bands 0, 1, 2... 7
+Returns all 8 LPF address values
+
+
+Parameters:
+   requesttype:    USB_ENDPOINT_IN
+   request:         0x58
+   value:           Don't care
+   index:           Don't care
+   bytes:           pointer to 8 bytes, containing all LPF address values
+   size:            8
+
+
 EOF
+

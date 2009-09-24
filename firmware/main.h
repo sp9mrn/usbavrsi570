@@ -31,37 +31,53 @@
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <util/delay.h>
+#include "usbconfig.h"
 #include "usbdrv.h"
+#include "usbavrcmd.h"
 
 
 #define	VERSION_MAJOR	15
-#define	VERSION_MINOR	11
+#define	VERSION_MINOR	12
 
 
 // Switch's to set the code needed
-#define	INCLUDE_NOT_USED					// Compatibility old firmware, I/O functions
-#define	INCLUDE_SI570						// Code generation for the PLL Si570 chip
-//#define	INCLUDE_AD9850					// Code generation for the DDS AD9850 chip
+#define	INCLUDE_NOT_USED		1			// Compatibility old firmware, I/O functions
+#define	INCLUDE_SI570			1			// Code generation for the PLL Si570 chip
+#define	INCLUDE_AD9850			0			// Code generation for the DDS AD9850 chip
+
+// A costommised USB serial number must be enabled in the usbconfig.h file!
+// Firmware changable USB serial number.
+#define INCLUDE_SN				(USB_CFG_DESCR_PROPS_STRING_SERIAL_NUMBER & USB_PROP_IS_RAM)
 
 
-#ifdef	INCLUDE_SI570						// Need i2c for the Si570 chip
+#if	INCLUDE_SI570							// Need i2c for the Si570 chip
 #define	DEVICE_XTAL		( 0x7248F5C2 )		// 114.285 * _2(24)
 #define	DEVICE_I2C		( 0x55 )			// Default Si570 I2C address (can change per device)
-#define	INCLUDE_I2C							// Include the i2c code
-#define	INCLUDE_ABPF						// Include automatic band pass filter selection
-#define INCLUDE_SMOOTH						// Include automatic smooth tune for the Si570 chip
-#define	INCLUDE_FREQ_SM						// Include frequency subtract multiply values
-#define	INCLUDE_CHECK_DSO_MAX				// Check calulated DSO freq on device max value
+#define	INCLUDE_I2C				1			// Include the i2c code
+#define	INCLUDE_ABPF			0			// Include automatic band pass filter selection
+#define	INCLUDE_IBPF			1			// Include inteligent band-pass-filter code.
+#define INCLUDE_SMOOTH			1			// Include automatic smooth tune for the Si570 chip
+#define	INCLUDE_FREQ_SM			0			// Include frequency subtract multiply values
+#define	INCLUDE_CHECK_DSO_MAX	1			// Check calulated DSO freq on device max value
+#define INCLUDE_TEMP			1			// Include the temperature code
 #endif
 
 
-#ifdef	INCLUDE_AD9850						// Code generation for the DDS AD9850 chip
+#if	INCLUDE_AD9850							// Code generation for the DDS AD9850 chip
 #define	DEVICE_XTAL		( 100.0 * _2(24) )	// Clock of the DDS chip [8.24]
 #define	DEVICE_I2C		( 0x00 )			// Used for DDS control / phase word
-#undef	INCLUDE_ABPF						// No automatic band pass filter selection
-#undef	INCLUDE_SMOOTH						// No smooth tune if the is no Si570 chip
-#define	INCLUDE_FREQ_SM						// Include frequency subtract multiply values
-#undef	INCLUDE_CHECK_DSO_MAX				// Check calulated DSO freq on device max value
+#define	INCLUDE_ABPF			0			// No automatic band pass filter selection
+#define	INCLUDE_IBPF			0			// Code generation for the inteligent band-pass-filter
+#define	INCLUDE_SMOOTH			0			// No smooth tune if the is no Si570 chip
+#define	INCLUDE_FREQ_SM			1			// Include frequency subtract multiply values
+#define	INCLUDE_CHECK_DSO_MAX	0			// Check calulated DSO freq on device max value
+#endif
+
+#if INCLUDE_IBPF
+#undef	INCLUDE_ABPF
+#define	INCLUDE_ABPF			0			// ABPF is part of the new IBPF
+#undef	INCLUDE_FREQ_SM
+#define	INCLUDE_FREQ_SM			0			// Freq offset/multiply is part of the new IBPF
 #endif
 
 
@@ -75,14 +91,14 @@
 #define IO_P2			( IO_BIT_START+1 )
 
 
-#ifdef INCLUDE_I2C
+#if INCLUDE_I2C
 #define BIT_SDA			PB1
 #define BIT_SCL 		PB3
 #define	I2C_DDR			DDRB
 #define	I2C_PIN			PINB
 #endif
 
-#ifdef INCLUDE_AD9850
+#if INCLUDE_AD9850
 #define	DDS_PORT		PORTB
 #define	DDS_DATA		PB1
 #define	DDS_W_CLK		PB3
@@ -92,10 +108,12 @@
 #define	true			1
 #define	false			0
 
-#define	_2(x)			((uint32_t)1<<(x))	// Take power of 2
+#define	_2(x)		((uint32_t)1<<(x))	// Take power of 2
 
 #define	bit_1(port,bit)	port |= _BV(bit)	// Set bit to one
 #define	bit_0(port,bit)	port &= ~_BV(bit)	// Set bit to zero
+
+#define	MAX_BAND		(_2(IO_BIT_LENGTH))	// Max of 4 band's
 
 
 typedef union {
@@ -130,16 +148,24 @@ typedef struct
 		uint8_t		RC_OSCCAL;				// CPU osc tune value
 		uint32_t	FreqXtal;				// crystal frequency[MHz] (8.24bits)
 		uint32_t	Freq;					// Running frequency[MHz] (11.21bits)
-#ifdef INCLUDE_FREQ_SM
+#if INCLUDE_SMOOTH
+		uint16_t	SmoothTunePPM;			// Max PPM value for the smooth tune
+#endif
+#if INCLUDE_FREQ_SM
 		uint32_t	FreqSub;				// Freq subtract value[MHz] (11.21bits)
 		uint32_t	FreqMul;				// Freq multiply value (11.21bits)
 #endif
-#ifdef INCLUDE_SMOOTH
-		uint16_t	SmoothTunePPM;			// Max PPM value for the smooth tune
-#endif
-#ifdef INCLUDE_ABPF
-		sint16_t	FilterCrossOver[4];		// Filter cross over points [0..2] (11.5bits)
+#if INCLUDE_ABPF | INCLUDE_IBPF
+		sint16_t	FilterCrossOver[MAX_BAND];// Filter cross over points [0..2] (11.5bits)
 #endif										// Filter control on/off [3]
+#if INCLUDE_IBPF
+		uint8_t		Band2Filter[MAX_BAND];	// Filter number for band 0..3
+		uint32_t	BandSub[MAX_BAND];		// Freq subtract value[MHz] (11.21bits) for band 0..3
+		uint32_t	BandMul[MAX_BAND];		// Freq multiply value (11.21bits) for band 0..3
+#endif										// Filter control on/off [3]
+#if INCLUDE_SN
+		uint8_t		SerialNumber;			// Default serial number last char! ("PE0FKO-2.0")
+#endif
 		uint8_t		ChipCrtlData;			// I2C addres, default 0x55 (85 dec)
 } var_t;
 
@@ -155,23 +181,22 @@ extern	void		SetFreq(uint32_t freq);
 extern	void		DeviceInit(void);
 
 
-#ifdef INCLUDE_SI570
+#if INCLUDE_SI570
 #define	DCO_MIN		4850					// min VCO frequency 4850 MHz
 #define DCO_MAX		5670					// max VCO frequency 5670 MHz
 
 extern	void		Si570CmdReg(uint8_t reg, uint8_t data);
 #endif
 
-#ifdef INCLUDE_SMOOTH
+#if INCLUDE_SMOOTH
 extern	uint32_t	FreqSmoothTune;			// The smooth tune center frequency
 #endif
 
-#ifdef INCLUDE_ABPF
-#define	FilterCrossOverOn	(R.FilterCrossOver[3].b0 != 0)
+#if INCLUDE_ABPF | INCLUDE_IBPF
+#define	FilterCrossOverOn	(R.FilterCrossOver[MAX_BAND-1].b0 != 0)
 #endif
 
-
-#ifdef INCLUDE_I2C
+#if INCLUDE_I2C
 #define	I2C_KBITRATE	400.0				// I2C Bus speed in Kbs
 
 register uint8_t	I2CErrors asm("r8");

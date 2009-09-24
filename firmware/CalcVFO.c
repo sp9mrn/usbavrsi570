@@ -20,7 +20,7 @@
 
 #include "main.h"
 
-#ifdef INCLUDE_FREQ_SM
+#if INCLUDE_FREQ_SM | INCLUDE_IBPF
 
 // LO    = (freq - offset) * multiply
 // 22.42 =  --- 11.21 ---  * 11.21
@@ -36,7 +36,7 @@
 
 static
 uint32_t
-CalcFreqMulAdd(uint32_t iFreq)
+CalcFreqMulAdd(uint32_t iFreq, uint32_t Sub, uint32_t Mul)
 {
 	uint32_t	oFreq = 0;
 	uint8_t		cnt = 32+1;
@@ -47,14 +47,11 @@ CalcFreqMulAdd(uint32_t iFreq)
 	"sbc %B1,%B2			\n\t"	// iFreq -= R.FreqSub
 	"sbc %C1,%C2			\n\t"
 	"sbc %D1,%D2			\n\t"
-//	 ---- BUG in V15.10 ----
-//	"brcc L_X_%=			\n\t"	// if iFreq is negative
-
+//	"brcc L_X_%=			\n\t"	// if iFreq is negative		BUG V15.10
 //	"add %A1,%A2			\n\t"	// then
 //	"adc %B1,%B2			\n\t"	//   iFreq += R.FreqSub
 //	"adc %C1,%C2			\n\t"	// Prevent a negative number
 //	"adc %D1,%D2			\n\t"
-//	 ---- BUG in V15.10 ----
 
 "L_X_%=:					\n\t"
 	"clc					\n\t"	// oFreq:iFreq *= R.FreqMul
@@ -99,8 +96,10 @@ CalcFreqMulAdd(uint32_t iFreq)
 
 	// Input operand list
 	//-------------------
-	: "r" (R.FreqSub)		// %2	First Offset subtract
-	, "r" (R.FreqMul)		// %3	Then Frequency multiply
+//	: "r" (R.FreqSub)		// %2	First Offset subtract
+//	, "r" (R.FreqMul)		// %3	Then Frequency multiply
+	: "r" (Sub)				// %2	First Offset subtract
+	, "r" (Mul)				// %3	Then Frequency multiply
 	, "r" (cnt)				// %4	Loop counter
 	, "0" (oFreq)			// %0
 	, "1" (iFreq)			// %1

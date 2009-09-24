@@ -21,7 +21,7 @@
 
 #include "main.h"
 
-#ifdef INCLUDE_I2C
+#if INCLUDE_I2C
 
 #define SDA					(1<<BIT_SDA)
 #define SCL					(1<<BIT_SCL)
@@ -40,7 +40,7 @@ I2CDelay(void)
 
 //PE0FKO: The original code has no stop condition (hang on SCL low)
 static void 
-I2CStretch()							// Wait until clock hi
+I2CStretch(void)						// Wait until clock hi
 {										// Terminate the loop @ max 2.1ms
 	uint16_t i = 50;					// 2.1mS
 	do {

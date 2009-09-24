@@ -22,13 +22,8 @@
 /* ---------------------------- Hardware Config ---------------------------- */
 
 #define	USB_CFG_IOPORTNAME			B
-#if 1
-#define	USB_CFG_DMINUS_BIT			2	//ORG
+#define	USB_CFG_DMINUS_BIT			2
 #define	USB_CFG_DPLUS_BIT			0
-#else
-#define	USB_CFG_DMINUS_BIT			0
-#define	USB_CFG_DPLUS_BIT			2
-#endif
 
 /* --------------------------- Functional Range ---------------------------- */
 
@@ -48,19 +43,42 @@ extern void usbEventResetReady(void);
 #define	USB_CFG_DEVICE_ID			0xdc, 0x05
 #define	USB_CFG_DEVICE_VERSION		0x00, 0x01
 
+
 #define	USB_CFG_VENDOR_NAME			'w', 'w', 'w', '.', 'o', 'b', 'd', 'e', 'v', '.', 'a', 't'
 #define	USB_CFG_VENDOR_NAME_LEN		12
-//#define USB_CFG_VENDOR_NAME		'S', 'o', 'f', 't', 'R', 'o', 'c', 'k', '-', 'S', 'D', 'R'
-//#define USB_CFG_VENDOR_NAME_LEN	12
-
 #define	USB_CFG_DEVICE_NAME			'D', 'G', '8', 'S', 'A', 'Q', '-', 'I', '2', 'C'
 #define	USB_CFG_DEVICE_NAME_LEN		10
+#define	USB_CFG_SERIAL_NUMBER		'P','E','0','F','K','O','-','0'
+#define	USB_CFG_SERIAL_NUMBER_LEN	8
 
-//#define USB_CFG_SERIAL_NUMBER		'B', 'e', 't', 'a', '1', '.', '1' 
-//#define USB_CFG_SERIAL_NUMBER_LEN	7 
-#define	USB_CFG_SERIAL_NUMBER		'P','E','0','F','K','O','-','2','.','0'
-#define	USB_CFG_SERIAL_NUMBER_LEN	10
+// I like this one, but some old dg8saq tools prevent using other names for the Vendor & Device name!
+//#define	USB_CFG_VENDOR_NAME			'w','w','w','.','k','b','9','y','i','g','.','c','o','m'
+//#define	USB_CFG_VENDOR_NAME_LEN		14
+//#define	USB_CFG_DEVICE_NAME			'S', 'o', 'f', 't', 'R', 'o', 'c', 'k', '-', 'S', 'D', 'R'
+//#define	USB_CFG_DEVICE_NAME_LEN		12
+//#define	USB_CFG_SERIAL_NUMBER		'P','E','0','F','K','O','-','0'
+//#define	USB_CFG_SERIAL_NUMBER_LEN	8
 
+
+// If you want a custommised USB serial number, enable the next line.
+#define	USB_CFG_DESCR_PROPS_STRING_SERIAL_NUMBER	(USB_PROP_IS_RAM | USB_PROP_LENGTH(USB_CFG_SERIAL_NUMBER_LEN))
+
+// PE0FKO:
+// There is a BUG in the V-USB library version 20090822 I found.
+// To use the USB_PROP_IS_RAM change the #define in usbdrv.c
+// to the code below.
+//#define GET_DESCRIPTOR(cfgProp, staticName)         \
+//    if(cfgProp){                                    \
+//        if((cfgProp) & USB_PROP_IS_DYNAMIC){        \
+//            len = usbFunctionDescriptor(rq);        \
+//        }else{                                      \
+//            len = USB_PROP_LENGTH(cfgProp);         \
+//            usbMsgPtr = (uchar *)(staticName);      \
+//        }                                           \
+//        if((cfgProp) & USB_PROP_IS_RAM)             \
+//        {    flags = 0; len = len*2+2;   }          \
+//    }
+//
 
 
 // ------------------------ usbconfig-prototype.h -------------------------
@@ -397,7 +415,7 @@ section at the end of this file).
 #define USB_CFG_DESCR_PROPS_STRING_0                0
 #define USB_CFG_DESCR_PROPS_STRING_VENDOR           0
 #define USB_CFG_DESCR_PROPS_STRING_PRODUCT          0
-#define USB_CFG_DESCR_PROPS_STRING_SERIAL_NUMBER    0
+//#define USB_CFG_DESCR_PROPS_STRING_SERIAL_NUMBER    0
 #define USB_CFG_DESCR_PROPS_HID                     0
 #define USB_CFG_DESCR_PROPS_HID_REPORT              0
 #define USB_CFG_DESCR_PROPS_UNKNOWN                 0
