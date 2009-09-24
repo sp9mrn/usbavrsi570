@@ -1,7 +1,7 @@
 [Version]
 Signature = "$Chicago$"
 provider  = %manufacturer%
-DriverVer = 03/20/2007,0.1.12.1
+DriverVer = 07/07/2009,0.1.12.2
 CatalogFile = PE0FKO.cat
 CatalogFile.NT = PE0FKO.cat
 CatalogFile.NTAMD64 = PE0FKO_x64.cat
@@ -108,7 +108,7 @@ HKR,,SurpriseRemovalOK, 0x00010001, 1
 ;--------------------------------------------------------------------------
 
 [libusb_add_service]
-DisplayName    = "LibUsb-Win32 - Kernel Driver 03/20/2007, 0.1.12.1"
+DisplayName    = "LibUsb-Win32 - Kernel Driver 07/07/2009, 0.1.12.2"
 ServiceType    = 1
 StartType      = 3
 ErrorControl   = 0
@@ -119,13 +119,13 @@ ServiceBinary  = %12%\libusb0.sys
 ;--------------------------------------------------------------------------
 
 [Devices]
-"DG8SAQ-I2C"=LIBUSB_DEV, USB\VID_16c0&PID_05dc
+"SoftRock-SDR"=LIBUSB_DEV, USB\VID_16c0&PID_05dc
 
 [Devices.NT]
-"DG8SAQ-I2C"=LIBUSB_DEV, USB\VID_16c0&PID_05dc
+"SoftRock-SDR"=LIBUSB_DEV, USB\VID_16c0&PID_05dc
 
 [Devices.NTAMD64]
-"DG8SAQ-I2C"=LIBUSB_DEV, USB\VID_16c0&PID_05dc
+"SoftRock-SDR"=LIBUSB_DEV, USB\VID_16c0&PID_05dc
 
 
 ;--------------------------------------------------------------------------
@@ -133,4 +133,4 @@ ServiceBinary  = %12%\libusb0.sys
 ;--------------------------------------------------------------------------
 
 [Strings]
-manufacturer = "PE0FKO Version 2.0"
+manufacturer = "www.kb9yig.com, PE0FKO"
