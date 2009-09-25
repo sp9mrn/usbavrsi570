@@ -497,14 +497,14 @@ LOAD d:/winavr-20090313/bin/../lib/gcc/avr/4.3.2/avr25\libgcc.a
  .debug_abbrev  0x00000868       0x51 DeviceAd9850.o
  .debug_abbrev  0x000008b9      0x219 usbdrv.o
 
-.debug_line     0x00000000     0x14dd
+.debug_line     0x00000000     0x14b7
  *(.debug_line)
- .debug_line    0x00000000      0x7fa main.o
- .debug_line    0x000007fa      0x199 osccal.o
- .debug_line    0x00000993      0x33b I2Copencollector.o
- .debug_line    0x00000cce      0x42a DeviceSi570.o
- .debug_line    0x000010f8       0x87 DeviceAd9850.o
- .debug_line    0x0000117f      0x35e usbdrv.o
+ .debug_line    0x00000000      0x7d4 main.o
+ .debug_line    0x000007d4      0x199 osccal.o
+ .debug_line    0x0000096d      0x33b I2Copencollector.o
+ .debug_line    0x00000ca8      0x42a DeviceSi570.o
+ .debug_line    0x000010d2       0x87 DeviceAd9850.o
+ .debug_line    0x00001159      0x35e usbdrv.o
 
 .debug_frame    0x00000000      0x1e0
  *(.debug_frame)
@@ -514,20 +514,20 @@ LOAD d:/winavr-20090313/bin/../lib/gcc/avr/4.3.2/avr25\libgcc.a
  .debug_frame   0x00000130       0x80 DeviceSi570.o
  .debug_frame   0x000001b0       0x30 usbdrv.o
 
-.debug_str      0x00000000      0x7ed
+.debug_str      0x00000000      0x7c7
  *(.debug_str)
- .debug_str     0x00000000      0x332 main.o
-                                0x38e (size before relaxing)
- .debug_str     0x00000332       0x67 osccal.o
-                                0x14b (size before relaxing)
- .debug_str     0x00000399       0x97 I2Copencollector.o
-                                0x1c7 (size before relaxing)
- .debug_str     0x00000430      0x160 DeviceSi570.o
-                                0x341 (size before relaxing)
- .debug_str     0x00000590       0x12 DeviceAd9850.o
-                                 0xff (size before relaxing)
- .debug_str     0x000005a2      0x24b usbdrv.o
-                                0x3c8 (size before relaxing)
+ .debug_str     0x00000000      0x30c main.o
+                                0x368 (size before relaxing)
+ .debug_str     0x0000030c       0x67 osccal.o
+                                0x125 (size before relaxing)
+ .debug_str     0x00000373       0x97 I2Copencollector.o
+                                0x1a1 (size before relaxing)
+ .debug_str     0x0000040a      0x160 DeviceSi570.o
+                                0x31b (size before relaxing)
+ .debug_str     0x0000056a       0x12 DeviceAd9850.o
+                                 0xd9 (size before relaxing)
+ .debug_str     0x0000057c      0x24b usbdrv.o
+                                0x3a2 (size before relaxing)
 
 .debug_loc      0x00000000      0xbdb
  *(.debug_loc)
