@@ -61,24 +61,7 @@ extern void usbEventResetReady(void);
 
 
 // If you want a custommised USB serial number, enable the next line.
-#define	USB_CFG_DESCR_PROPS_STRING_SERIAL_NUMBER	(USB_PROP_IS_RAM | USB_PROP_LENGTH(USB_CFG_SERIAL_NUMBER_LEN))
-
-// PE0FKO:
-// There is a BUG in the V-USB library version 20090822 I found.
-// To use the USB_PROP_IS_RAM change the #define in usbdrv.c
-// to the code below.
-//#define GET_DESCRIPTOR(cfgProp, staticName)         \
-//    if(cfgProp){                                    \
-//        if((cfgProp) & USB_PROP_IS_DYNAMIC){        \
-//            len = usbFunctionDescriptor(rq);        \
-//        }else{                                      \
-//            len = USB_PROP_LENGTH(cfgProp);         \
-//            usbMsgPtr = (uchar *)(staticName);      \
-//        }                                           \
-//        if((cfgProp) & USB_PROP_IS_RAM)             \
-//        {    flags = 0; len = len*2+2;   }          \
-//    }
-//
+#define	USB_CFG_DESCR_PROPS_STRING_SERIAL_NUMBER	(USB_PROP_IS_RAM | (2 * USB_CFG_SERIAL_NUMBER_LEN + 2))
 
 
 // ------------------------ usbconfig-prototype.h -------------------------
