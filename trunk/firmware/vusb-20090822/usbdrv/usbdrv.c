@@ -293,23 +293,6 @@ USB_PUBLIC void usbSetInterrupt3(uchar *data, uchar len)
  * This may cause problems with undefined symbols if compiled without
  * optimizing!
  */
-//+PE0FKO
-#if 1
-
-#define GET_DESCRIPTOR(cfgProp, staticName)         \
-    if(cfgProp){                                    \
-        if((cfgProp) & USB_PROP_IS_DYNAMIC){        \
-            len = usbFunctionDescriptor(rq);        \
-        }else{                                      \
-            len = USB_PROP_LENGTH(cfgProp);         \
-            usbMsgPtr = (uchar *)(staticName);      \
-        }                                           \
-        if((cfgProp) & USB_PROP_IS_RAM)             \
-        {    flags = 0; len = len*2+2;   }          \
-    }
-
-#else
-
 #define GET_DESCRIPTOR(cfgProp, staticName)         \
     if(cfgProp){                                    \
         if((cfgProp) & USB_PROP_IS_RAM)             \
@@ -321,9 +304,6 @@ USB_PUBLIC void usbSetInterrupt3(uchar *data, uchar len)
             usbMsgPtr = (uchar *)(staticName);      \
         }                                           \
     }
-
-#endif
-//-PE0FKO
 
 /* usbDriverDescriptor() is similar to usbFunctionDescriptor(), but used
  * internally for all types of descriptors.
