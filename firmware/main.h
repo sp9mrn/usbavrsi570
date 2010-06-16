@@ -37,7 +37,7 @@
 
 
 #define	VERSION_MAJOR	15
-#define	VERSION_MINOR	12
+#define	VERSION_MINOR	13
 
 
 // Switch's to set the code needed
@@ -54,12 +54,15 @@
 #define	DEVICE_XTAL		( 0x7248F5C2 )		// 114.285 * _2(24)
 #define	DEVICE_I2C		( 0x55 )			// Default Si570 I2C address (can change per device)
 #define	INCLUDE_I2C				1			// Include the i2c code
-#define	INCLUDE_ABPF			0			// Include automatic band pass filter selection
 #define	INCLUDE_IBPF			1			// Include inteligent band-pass-filter code.
-#define INCLUDE_SMOOTH			1			// Include automatic smooth tune for the Si570 chip
+#define	INCLUDE_ABPF			0			// Include automatic band pass filter selection
 #define	INCLUDE_FREQ_SM			0			// Include frequency subtract multiply values
+#define INCLUDE_SMOOTH			1			// Include automatic smooth tune for the Si570 chip
 #define	INCLUDE_CHECK_DSO_MAX	1			// Check calulated DSO freq on device max value
 #define INCLUDE_TEMP			1			// Include the temperature code
+// This code is not tested yet!!! Please report if you try this code. Thanks.
+#define	INCLUDE_SI570_B			0			// Select if a Si570 Grade B or C device is used.
+#define	INCLUDE_SI570_C			0			// Only for the Si570 LVPECL/LVDS/CML chip
 #endif
 
 
