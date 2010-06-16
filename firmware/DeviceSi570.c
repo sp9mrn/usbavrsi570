@@ -88,6 +88,29 @@ Si570CalcDivider(uint32_t freq)
 		if (xN1 != 1 && (xN1 & 1) == 1)
 			xN1 += 1;
 
+// This code is not tested yet!!!
+// Please report if you try this code.
+// Thanks.
+#if INCLUDE_SI570_C
+		if ((xN1 == 1 && xHS_DIV == 4)
+		||	(xN1 == 1 && xHS_DIV == 5)
+		||	(xN1 == 1 && xHS_DIV == 6)
+		||	(xN1 == 1 && xHS_DIV == 7)
+		||	(xN1 == 1 && xHS_DIV == 11)
+		||	(xN1 == 2 && xHS_DIV == 4)
+		||	(xN1 == 2 && xHS_DIV == 5)
+		||	(xN1 == 2 && xHS_DIV == 6)
+		||	(xN1 == 2 && xHS_DIV == 7)
+		||	(xN1 == 2 && xHS_DIV == 9)
+		||	(xN1 == 4 && xHS_DIV == 4))
+			continue;
+#endif
+#if INCLUDE_SI570_B
+		if ((xN1 == 1 && xHS_DIV == 4)
+		||	(xN1 == 1 && xHS_DIV == 5))
+			continue;
+#endif
+
 		xN = xHS_DIV * xN1;
 		if (sN > xN)
 		{
@@ -369,7 +392,8 @@ SetFreq(uint32_t freq)		// frequency [MHz] * 2^21
 
 #endif
 
-#ifdef INCLUDE_ABPF
+//#ifdef INCLUDE_ABPF	<<-- Bug in V15.12
+#if INCLUDE_ABPF
 	if (FilterCrossOverOn)
 	{
 		sint32_t Freq;
