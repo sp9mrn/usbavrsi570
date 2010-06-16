@@ -51,8 +51,10 @@
 //**                                  I2C addresses if Index is zero.
 //**                                  Change of the USB Serial number is possible for the last char of 
 //**                                  that string "PE0FKO-0". The "0" can be changed with command 0x43.
+//**               V15.13 15/06/2010: Bug fix for the filter / band selection in DeviceSi570.c
+//**                                  Added compiler option for the Si570 chip grade B & C selection.
+//**                                  Delay 100ms added before the USB enumeration to stabilize the electric part.
 //**                                  
-//**
 //**************************************************************************
 //
 //        ATtiny45/85
@@ -493,7 +495,7 @@ dotInit3(void)
 /* --------------------------------- main ---------------------------------- */
 /* ------------------------------------------------------------------------- */
 
-int __attribute__((noreturn)) 
+int __attribute__((naked)) 
 main(void)
 {
 
@@ -516,8 +518,10 @@ main(void)
 
 	DeviceInit();								// Initialize the Si570 device.
 
-	usbDeviceDisconnect();						// Start USB enumeration
-	_delay_ms(500);
+	// Start USB enumeration
+	_delay_ms(100);								// First wait USB connection is stable
+	usbDeviceDisconnect();
+	_delay_ms(400);
 	usbDeviceConnect();
 
 	wdt_enable(WDTO_250MS);						// Watchdog 250ms
@@ -552,7 +556,13 @@ main(void)
  * V15.9	3984 bytes (97.3% Full)
  * V15.10	4018 bytes (98.1% Full)
  * V15.11	4094 bytes (100.% Full)
+
  * Compiler: WinAVR-20090313
  * Chip: ATtiny85
  * V15.12	5112 bytes (62.4% Full)
+
+ * Compiler: WinAVR-20100110
+ * Chip: ATtiny85
+ * V15.13	4558 bytes (55.6% Full)
+
  */
