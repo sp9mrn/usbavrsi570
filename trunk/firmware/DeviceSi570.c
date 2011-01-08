@@ -50,27 +50,27 @@ Si570CalcDivider(uint32_t freq)
 {
 	// Register finding the lowest DCO frequenty
 	uint8_t		xHS_DIV;
-	uint16_t	xN1;
+	sint16_t	xN1;
 	uint16_t	xN;
 
 	// Registers to save the found dividers
-	uint8_t		sHS_DIV=0;
-	uint8_t		sN1=0;
-	uint16_t	sN=0;					// Total dividing
-
+	uint8_t		sHS_DIV	= 0;
+	uint8_t		sN1		= 0;
+	uint16_t	sN		= 11*128;		// Total dividing
 	uint16_t	N0;						// Total divider needed (N1 * HS_DIV)
 	sint32_t	Freq;
 
 	Freq.dw = freq;
 
-
 	// Find the total division needed.
 	// It is always one to low (not in the case reminder is zero, reminder not used here).
 	// 16.0 bits = 13.3 bits / ( 11.5 bits >> 2)
-	N0  = DCO_MIN * _2(3);
-	N0 /= Freq.w1.w >> 2;
+#if INCLUDE_SI570_GRADE
+	N0 = (R.Si570DCOMin * (uint16_t)(_2(3))) / (Freq.w1.w >> 2);
+#else
+	N0 = (DCO_MIN * _2(3)) / (Freq.w1.w >> 2);
+#endif
 
-	sN = 11*128;
 	for(xHS_DIV = 11; xHS_DIV > 3; --xHS_DIV)
 	{
 		// Skip the unavailable divider's
@@ -78,44 +78,77 @@ Si570CalcDivider(uint32_t freq)
 			continue;
 
 		// Calculate the needed low speed divider
-		xN1 = N0 / xHS_DIV + 1;
-//		xN1 = (N0 + xHS_DIV/2) / xHS_DIV;
+		xN1.w = N0 / xHS_DIV + 1;
 
-		if (xN1 > 128)
+		if (xN1.w > 128)
 			continue;
 
-		// Skip the unavailable divider's
-		if (xN1 != 1 && (xN1 & 1) == 1)
-			xN1 += 1;
+		// Skip the unavailable N1 divider's
+		if (xN1.b0 != 1 && (xN1.b0 & 1) == 1)
+			xN1.b0 += 1;
 
-// This code is not tested yet!!!
-// Please report if you try this code.
-// Thanks.
-#if INCLUDE_SI570_C
-		if ((xN1 == 1 && xHS_DIV == 4)
-		||	(xN1 == 1 && xHS_DIV == 5)
-		||	(xN1 == 1 && xHS_DIV == 6)
-		||	(xN1 == 1 && xHS_DIV == 7)
-		||	(xN1 == 1 && xHS_DIV == 11)
-		||	(xN1 == 2 && xHS_DIV == 4)
-		||	(xN1 == 2 && xHS_DIV == 5)
-		||	(xN1 == 2 && xHS_DIV == 6)
-		||	(xN1 == 2 && xHS_DIV == 7)
-		||	(xN1 == 2 && xHS_DIV == 9)
-		||	(xN1 == 4 && xHS_DIV == 4))
-			continue;
+#if INCLUDE_SI570_GRADE
+		if (R.Si570Grade == CHIP_SI570_A)
+		{
+			// No divider restrictions!
+		}
+		else
+		if (R.Si570Grade == CHIP_SI570_B)
+		{
+			if ((xN1.b0 == 1 && xHS_DIV == 4)
+			||	(xN1.b0 == 1 && xHS_DIV == 5))
+			{
+				continue;
+			}
+		}
+		else
+		if (R.Si570Grade == CHIP_SI570_C)
+		{
+			if ((xN1.b0 == 1 && xHS_DIV == 4)
+			||	(xN1.b0 == 1 && xHS_DIV == 5)
+			||	(xN1.b0 == 1 && xHS_DIV == 6)
+			||	(xN1.b0 == 1 && xHS_DIV == 7)
+			||	(xN1.b0 == 1 && xHS_DIV == 11)
+			||	(xN1.b0 == 2 && xHS_DIV == 4)
+			||	(xN1.b0 == 2 && xHS_DIV == 5)
+			||	(xN1.b0 == 2 && xHS_DIV == 6)
+			||	(xN1.b0 == 2 && xHS_DIV == 7)
+			||	(xN1.b0 == 2 && xHS_DIV == 9)
+			||	(xN1.b0 == 4 && xHS_DIV == 4))
+			{
+				continue;
+			}
+		} 
+		else
+		if (R.Si570Grade == CHIP_SI570_D)
+		{
+			if ((xN1.b0 == 1 && xHS_DIV == 4)
+			||	(xN1.b0 == 1 && xHS_DIV == 5)
+			||	(xN1.b0 == 1 && xHS_DIV == 6)
+			||	(xN1.b0 == 1 && xHS_DIV == 7)
+			||	(xN1.b0 == 1 && xHS_DIV == 11)
+			||	(xN1.b0 == 2 && xHS_DIV == 4)
+			||	(xN1.b0 == 2 && xHS_DIV == 5)
+			||	(xN1.b0 == 2 && xHS_DIV == 6)
+			||	(xN1.b0 == 2 && xHS_DIV == 7)
+			||	(xN1.b0 == 2 && xHS_DIV == 9))
+			// Removing the 4*4 is out of the spec of the C grade chip, it may work!
+//			||	(xN1.b0 == 4 && xHS_DIV == 4))
+			{
+				continue;
+			}
+		}
+		else
+		{
+		}
 #endif
-#if INCLUDE_SI570_B
-		if ((xN1 == 1 && xHS_DIV == 4)
-		||	(xN1 == 1 && xHS_DIV == 5))
-			continue;
-#endif
 
-		xN = xHS_DIV * xN1;
+
+		xN = xHS_DIV * xN1.b0;
 		if (sN > xN)
 		{
 			sN		= xN;
-			sN1		= xN1;
+			sN1		= xN1.b0;
 			sHS_DIV	= xHS_DIV;
 		}
 	}
@@ -203,7 +236,6 @@ Si570CalcRFREQ(uint32_t freq)
 //	: "r0"                          // r0 -> Tempory register
 	);
 
-#if INCLUDE_CHECK_DSO_MAX
 	// Check if DCO is lower than the Si570 max specied.
 	// The low 3 bit's are not used, so the error is 8MHz
 	// DCO = Freq * sN (calculated above)
@@ -211,6 +243,10 @@ Si570CalcRFREQ(uint32_t freq)
 	sint16_t DCO;
 	DCO.b0 = RFREQ.w1.b1;
 	DCO.b1 = RFREQ_b4;
+#if INCLUDE_SI570_GRADE
+	if (DCO.w > ((R.Si570DCOMax+4)/8))
+		return 0;
+#else
 	if (DCO.w > ((DCO_MAX+4)/8))
 		return 0;
 #endif

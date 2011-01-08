@@ -37,7 +37,7 @@
 
 
 #define	VERSION_MAJOR	15
-#define	VERSION_MINOR	13
+#define	VERSION_MINOR	14
 
 
 // Switch's to set the code needed
@@ -58,11 +58,8 @@
 #define	INCLUDE_ABPF			0			// Include automatic band pass filter selection
 #define	INCLUDE_FREQ_SM			0			// Include frequency subtract multiply values
 #define INCLUDE_SMOOTH			1			// Include automatic smooth tune for the Si570 chip
-#define	INCLUDE_CHECK_DSO_MAX	1			// Check calulated DSO freq on device max value
 #define INCLUDE_TEMP			1			// Include the temperature code
-// This code is not tested yet!!! Please report if you try this code. Thanks.
-#define	INCLUDE_SI570_B			0			// Select if a Si570 Grade B or C device is used.
-#define	INCLUDE_SI570_C			0			// Only for the Si570 LVPECL/LVDS/CML chip
+#define	INCLUDE_SI570_GRADE		1			// Include Si570 Grade select
 #endif
 
 
@@ -73,7 +70,7 @@
 #define	INCLUDE_IBPF			0			// Code generation for the inteligent band-pass-filter
 #define	INCLUDE_SMOOTH			0			// No smooth tune if the is no Si570 chip
 #define	INCLUDE_FREQ_SM			1			// Include frequency subtract multiply values
-#define	INCLUDE_CHECK_DSO_MAX	0			// Check calulated DSO freq on device max value
+#define	INCLUDE_SI570_GRADE		0			// Include Si570 Grade select
 #endif
 
 #if INCLUDE_IBPF
@@ -169,7 +166,13 @@ typedef struct
 #if INCLUDE_SN
 		uint8_t		SerialNumber;			// Default serial number last char! ("PE0FKO-2.0")
 #endif
+#if INCLUDE_SI570_GRADE
+		uint16_t	Si570DCOMin;			// Si570 Minimal DCO value
+		uint16_t	Si570DCOMax;			// Si570 Maximal DCO value
+		uint8_t		Si570Grade;				// Si570 chip grade
+#endif
 		uint8_t		ChipCrtlData;			// I2C addres, default 0x55 (85 dec)
+
 } var_t;
 
 
@@ -185,8 +188,23 @@ extern	void		DeviceInit(void);
 
 
 #if INCLUDE_SI570
+
 #define	DCO_MIN		4850					// min VCO frequency 4850 MHz
 #define DCO_MAX		5670					// max VCO frequency 5670 MHz
+
+// The divider restrictions for the 3 Si57x speed grades or frequency grades are as follows
+// - Grade A covers 10 to 945 MHz, 970 to 1134 MHz, and 1213 to 1417.5 MHz. Speed grade A
+//   device have no divider restrictions.
+// - Grade B covers 10 to 810 MHz. Speed grade B devices disable the output in the following
+//   N1*HS_DIV settings: 1*4, 1*5
+// - Grade C covers 10 to 280 MHz. Speed grade C devices disable the output in the following
+//   N1*HS_DIV settings: 1*4, 1*5, 1*6, 1*7, 1*11, 2*4, 2*5, 2*6, 2*7, 2*9, 4*4
+#define	CHIP_SI570_A			1			// Si570 Grade A device is used. (10 - 1417MHz)
+#define	CHIP_SI570_B			2			// Si570 Grade B device is used. (10 - 810MHz)
+#define	CHIP_SI570_C			3			// Si570 Grade C device is used. (10 - 280MHz)
+// Removing the 4*4 is out of the spec of the C grade chip, it may work!
+#define	CHIP_SI570_D			4			// Si570 Grade C device is used. (10 - 354MHz)
+
 
 extern	void		Si570CmdReg(uint8_t reg, uint8_t data);
 #endif

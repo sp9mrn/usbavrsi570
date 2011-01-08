@@ -54,6 +54,8 @@
 //**               V15.13 15/06/2010: Bug fix for the filter / band selection in DeviceSi570.c
 //**                                  Added compiler option for the Si570 chip grade B & C selection.
 //**                                  Delay 100ms added before the USB enumeration to stabilize the electric part.
+//**               V15.14 15/12/2010: Added Si570 chip Grade, DCO parameter and correct the si570 
+//**                                  divider selecttion. Temperature raw value.
 //**                                  
 //**************************************************************************
 //
@@ -111,6 +113,25 @@
 // - Add read / write Filter cross over points 0x17
 // - Many code optimalization to make the small code.
 // - Calculation of the freq from the Si570 registers and call 0x32, command 0x30
+//
+// Compiler: WinAVR-20071221
+// Chip: ATtiny45
+// V14		3866 bytes (94.4% Full)
+// V15.1	3856 bytes (94.1% Full)
+// V15.2	3482 bytes (85.0% Full)
+// V15.3	3892 bytes (95.0% Full)
+// V15.4	3918 bytes (95.7% Full)
+// V15.5	4044 bytes (98.7% Full)
+// V15.6	4072 bytes (99.4% Full)
+// V15.7	4090 bytes (99.9% Full)
+// V15.8	3984 bytes (97.3% Full)
+// V15.9	3984 bytes (97.3% Full)
+// V15.10	4018 bytes (98.1% Full)
+// V15.11	4094 bytes (100.% Full)
+// V15.12	5112 bytes (62.4% Full), ATtiny85, WinAVR-20090313, vusb-20090822
+// V15.13	4558 bytes (55.6% Full), ATtiny85, WinAVR-20100110, vusb-20090822
+// V15.14	4712 bytes (57.5% Full), ATtiny85, WinAVR-20100110, vusb-20100715
+//
 
 #include "main.h"
 
@@ -140,6 +161,11 @@ EEMEM	var_t		E;							// Variables in eeprom
 #endif
 #if INCLUDE_SN
 					,	'0'						// Default USB SerialNumber ID.
+#endif
+#if INCLUDE_SI570_GRADE
+					,	DCO_MIN					// min VCO frequency 4850 MHz
+					,	DCO_MAX					// max VCO frequency 5670 MHz
+					,	CHIP_SI570_C			// Si570 chip grade C default (save)
 #endif
 					,	DEVICE_I2C				// I2C address or ChipCrtlData
 					};
@@ -436,6 +462,31 @@ usbFunctionSetup(uchar data[8])
 #endif
 
 
+#if INCLUDE_SI570_GRADE
+	SWITCH_CASE(CMD_SET_SI570_GRADE)			// Set Si570 grade (A,B,C)
+		if (rq->wValue.bytes[0] != 0) 
+		{
+			R.Si570Grade = rq->wValue.bytes[0];
+			eeprom_write_byte(&E.Si570Grade, R.Si570Grade);
+		}
+		if (rq->wIndex.word != 0) 
+		{
+			if (rq->wValue.bytes[1] == 0) 
+			{
+				R.Si570DCOMin = rq->wIndex.word;
+				eeprom_write_word(&E.Si570DCOMin, R.Si570DCOMin);
+			}
+			else
+			{
+				R.Si570DCOMax = rq->wIndex.word;
+				eeprom_write_word(&E.Si570DCOMax, R.Si570DCOMax);
+			}
+		}
+		usbMsgPtr = (uint8_t*)&R.Si570DCOMin;
+        return sizeof(R.Si570Grade)+sizeof(R.Si570DCOMin)+sizeof(R.Si570DCOMax);
+#endif
+
+
 #if INCLUDE_IBPF
 	SWITCH_CASE(CMD_SET_RX_BAND_FILTER)			// Set the Filters for band 0..3
 		uint8_t band = rq->wIndex.bytes[0] & (MAX_BAND-1);	// 0..3 only
@@ -541,28 +592,3 @@ main(void)
 	}
 }
 
-/*
- * Compiler: WinAVR-20071221
- * Chip: ATtiny45
- * V14		3866 bytes (94.4% Full)
- * V15.1	3856 bytes (94.1% Full)
- * V15.2	3482 bytes (85.0% Full)
- * V15.3	3892 bytes (95.0% Full)
- * V15.4	3918 bytes (95.7% Full)
- * V15.5	4044 bytes (98.7% Full)
- * V15.6	4072 bytes (99.4% Full)
- * V15.7	4090 bytes (99.9% Full)
- * V15.8	3984 bytes (97.3% Full)
- * V15.9	3984 bytes (97.3% Full)
- * V15.10	4018 bytes (98.1% Full)
- * V15.11	4094 bytes (100.% Full)
-
- * Compiler: WinAVR-20090313
- * Chip: ATtiny85
- * V15.12	5112 bytes (62.4% Full)
-
- * Compiler: WinAVR-20100110
- * Chip: ATtiny85
- * V15.13	4558 bytes (55.6% Full)
-
- */
