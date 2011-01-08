@@ -74,6 +74,7 @@
 #define	CMD_SET_I2C_ADDR		0x41
 #define	CMD_GET_CPU_TEMP		0x42	// V15.12: 
 #define	CMD_GET_USB_ID			0x43	// V15.12: Get/Set the USB Serialnumber ID char (last char of string)
+#define	CMD_SET_SI570_GRADE		0x44	// V15.14
 
 
 #define	CMD_SET_USRP1			0x50

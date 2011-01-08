@@ -53,26 +53,31 @@
 **                                  I2C addresses if Index is zero.
 **                                  Change of the USB Serial number is possible for the last char of 
 **                                  that string "PE0FKO-0". The "0" can be changed with command 0x43.
+**               V15.13 15/06/2010: Bug fix for the filter / band selection in DeviceSi570.c
+**                                  Added compiler option for the Si570 chip grade B & C selection.
+**                                  Delay 100ms added before the USB enumeration to stabilize the electric part.
+**               V15.14 15/12/2010: Added Si570 chip Grade, DCO parameter and correct the si570 
+**                                  divider selecttion. Temperature raw value.
 **
 **************************************************************************
 
 Compiler: WinAVR-20071221
 Chip: ATtiny45 (4Kb prom)
-V14			3866 bytes (94.4% Full)
-V15.1		3856 bytes (94.1% Full)
-V15.2		3482 bytes (85.0% Full)
-V15.3		3892 bytes (95.0% Full)
-V15.4		3918 bytes (95.7% Full)
-V15.5		4044 bytes (98.7% Full)
-V15.6		4072 bytes (99.4% Full)
-V15.7		4090 bytes (99.9% Full)
-V15.8		3984 bytes (97.3% Full)
-V15.9		3984 bytes (97.3% Full)
-V15.10		4018 bytes (98.1% Full)
-V15.11		4094 bytes (100.% Full)
-Compiler: WinAVR-20090313
-Chip: ATtiny85 (8Kb prom)
-V15.12		5112 bytes (62.4% Full)
+V14		3866 bytes (94.4% Full)
+V15.1	3856 bytes (94.1% Full)
+V15.2	3482 bytes (85.0% Full)
+V15.3	3892 bytes (95.0% Full)
+V15.4	3918 bytes (95.7% Full)
+V15.5	4044 bytes (98.7% Full)
+V15.6	4072 bytes (99.4% Full)
+V15.7	4090 bytes (99.9% Full)
+V15.8	3984 bytes (97.3% Full)
+V15.9	3984 bytes (97.3% Full)
+V15.10	4018 bytes (98.1% Full)
+V15.11	4094 bytes (100.% Full)
+V15.12	5112 bytes (62.4% Full), ATtiny85, WinAVR-20090313, vusb-20090822
+V15.13	4558 bytes (55.6% Full), ATtiny85, WinAVR-20100110, vusb-20090822
+V15.14	4712 bytes (57.5% Full), ATtiny85, WinAVR-20100110, vusb-20100715
 
 
 Fuse bit information:
@@ -172,6 +177,7 @@ V15.10
 | 41 |   | * | I | Set the new i2c address.
 | 42 |   | * | I | CPU Temperaure
 | 43 |   | * | I | Change USB SerialNumber ID
+| 44 |   | * | I | Change the Si570 chip Grade (A,B,C)
 | 50 | * | * | I | Set USR_P1 and get cw-key status
 | 51 | * | * | I | Read SDA and CW key level simultaneously
 
@@ -808,6 +814,28 @@ Parameters:
     index:           0
     bytes:           pointer 1 byte ID address
     size:            1
+
+
+Command 0x44:
+-------------
+Change and get the Si570 chip Grade and DCO min / max value. The grade can be a number from 0 (no change),
+1 (grade A), 2 (grade B), 3 (grade C, default). The grade zero will not change the grade.
+
+The divider restrictions for the 3 Si57x speed grades or frequency grades are as follows
+- Grade A covers 10 to 945 MHz, 970 to 1134 MHz, and 1213 to 1417.5 MHz. Speed grade A
+  device have no divider restrictions.
+- Grade B covers 10 to 810 MHz. Speed grade B devices disable the output in the following
+  N1*HS_DIV settings: 1*4, 1*5
+- Grade C covers 10 to 280 MHz. Speed grade C devices disable the output in the following
+  N1*HS_DIV settings: 1*4, 1*5, 1*6, 1*7, 1*11, 2*4, 2*5, 2*6, 2*7, 2*9, 4*4
+
+Parameters:
+    requesttype:    USB_ENDPOINT_IN
+    request:         0x44
+    value:           Si570 chip grade (0..3) in low byte
+    index:           DCO min if high byte value is zero, DCO max if high byte value is not zero
+    bytes:           pointer 5 byte grade address
+    size:            5
 
 
 Command 0x50:

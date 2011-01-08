@@ -38,7 +38,9 @@ GetTemperature()
 	ADCSRA = (1<<ADEN)|(1<<ADSC)|(7<<ADPS0);
 
 	while(ADCSRA & _BV(ADSC)) {}
-	temp = ((ADC - 270) * (6 * (1<<4))) / 7;
+
+//	temp = ((ADC - 270) * (6 * (1<<4))) / 7;
+	temp = ADC;	// V15.14 No data conversion anymore!
 
 	ADCSRA = (0<<ADEN);
 
