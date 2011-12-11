@@ -827,15 +827,14 @@ Parameters:
 
 Command 0x44:
 -------------
-Change and get the Si570 chip Grade, RFREQ register index and DCO min / max value. The grade can 
-be a number from 0 (no change), 1 (grade A), 2 (grade B), 3 (grade C, default). The grade zero will 
+Change and get the Si570 chip Grade, RFREQ register index and DCO min / max value. The grade can
+be a number from 0 (no change), 1 (grade A), 2 (grade B), 3 (grade C, default). The grade zero will
 not change the grade.
-When specifieing the chip grade it is also possible to set the RFREQ register index. The index must
-be changed when using the new Si570 7ppm (temperature) chip. There are three valua (0, 7 or 13) possible,
-the value 0 is a autodetect function.
-
-Change and get the Si570 chip Grade and DCO min / max value. The grade can be a number from 0 (no change),
-1 (grade A), 2 (grade B), 3 (grade C, default). The grade zero will not change the grade.
+When specifying the chip grade it also set the RFREQ register index. The index must
+be changed when using the new Si570 7ppm (temperature) chip. There are three value (0, 7 or 13)
+possible, the value 0 is a auto-detect function.
+Also the freeze of the frequency when updating the RFREQ register (only new Si570) can be
+specified with this function.
 
 The divider restrictions for the 3 Si57x speed grades or frequency grades are as follows
 - Grade A covers 10 to 945 MHz, 970 to 1134 MHz, and 1213 to 1417.5 MHz. Speed grade A
