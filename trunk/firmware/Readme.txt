@@ -58,6 +58,14 @@
 **                                  Delay 100ms added before the USB enumeration to stabilize the electric part.
 **               V15.14 15/12/2010: Added Si570 chip Grade, DCO parameter and correct the si570 
 **                                  divider selecttion. Temperature raw value.
+**               V15.15 10/12/2011: Changes made necessary for the new Si570 chip from SiLabs.
+**                                  The new chip version with 7ppm temperature stability did change the
+**                                  Index of the RFREQ registers from 7 to 13. Also a new function to
+**                                  freeze the RFREQ when updating new data to the RFREQ (Freeze-M).
+**                                  The firmware can auto-detect the new Si570 chip and use the correct
+**                                  RFREQ index. The function CMD_SET_SI570_GRADE (0x44) is extended to
+**                                  support the change of RFREQ index.
+**                                  Also removed some global register variables to normal ram.
 **
 **************************************************************************
 
@@ -78,6 +86,7 @@ V15.11	4094 bytes (100.% Full)
 V15.12	5112 bytes (62.4% Full), ATtiny85, WinAVR-20090313, vusb-20090822
 V15.13	4558 bytes (55.6% Full), ATtiny85, WinAVR-20100110, vusb-20090822
 V15.14	4712 bytes (57.5% Full), ATtiny85, WinAVR-20100110, vusb-20100715
+V15.15	4902 bytes (59.8% Full), ATtiny85, WinAVR-20100110, vusb-20100715
 
 
 Fuse bit information:
@@ -177,7 +186,7 @@ V15.10
 | 41 |   | * | I | Set the new i2c address.
 | 42 |   | * | I | CPU Temperaure
 | 43 |   | * | I | Change USB SerialNumber ID
-| 44 |   | * | I | Change the Si570 chip Grade (A,B,C)
+| 44 |   | * | I | Change the Si570 chip Grade (A,B,C) and the RFREQ index.
 | 50 | * | * | I | Set USR_P1 and get cw-key status
 | 51 | * | * | I | Read SDA and CW key level simultaneously
 
@@ -757,7 +766,7 @@ Code sample:
 
 Command 0x3F:
 -------------
-Return the Si570 frequency control registers (reg 7 .. 12). If there are I2C errors
+Return the Si570 frequency control registers (reg 7:12 or reg 13:18). If there are I2C errors
 the return length is 0.
 
 Default:    None
@@ -765,8 +774,8 @@ Default:    None
 Parameters:
     requesttype:     USB_ENDPOINT_IN
     request:         0x3F
-    value:           0
-    index:           0
+    value:           Not used
+    index:           Byte index in Si570 registers, 0 = default index other the start index (read 6 bytes).
     bytes:           pointer 6 byte register array
     size:            6
 
@@ -818,6 +827,13 @@ Parameters:
 
 Command 0x44:
 -------------
+Change and get the Si570 chip Grade, RFREQ register index and DCO min / max value. The grade can 
+be a number from 0 (no change), 1 (grade A), 2 (grade B), 3 (grade C, default). The grade zero will 
+not change the grade.
+When specifieing the chip grade it is also possible to set the RFREQ register index. The index must
+be changed when using the new Si570 7ppm (temperature) chip. There are three valua (0, 7 or 13) possible,
+the value 0 is a autodetect function.
+
 Change and get the Si570 chip Grade and DCO min / max value. The grade can be a number from 0 (no change),
 1 (grade A), 2 (grade B), 3 (grade C, default). The grade zero will not change the grade.
 
@@ -832,7 +848,7 @@ The divider restrictions for the 3 Si57x speed grades or frequency grades are as
 Parameters:
     requesttype:    USB_ENDPOINT_IN
     request:         0x44
-    value:           Si570 chip grade (0..3) in low byte
+    value:           Si570 chip grade (0..3) in low byte, RFREQ Index (0,7,13) in high byte, Freeze-M in bit 15.
     index:           DCO min if high byte value is zero, DCO max if high byte value is not zero
     bytes:           pointer 5 byte grade address
     size:            5
