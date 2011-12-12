@@ -29,8 +29,9 @@
 #define I2C_SDA_HI			I2C_DDR &= ~SDA
 #define I2C_SCL_LO			I2C_DDR |= SCL
 #define I2C_SCL_HI			I2C_DDR &= ~SCL
-
 #define	I2C_DELAY_uS		(1000.0 / I2C_KBITRATE)
+
+uint8_t	I2CErrors;
 
 static void 
 I2CDelay(void)
