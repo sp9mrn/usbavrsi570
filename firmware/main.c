@@ -56,6 +56,14 @@
 //**                                  Delay 100ms added before the USB enumeration to stabilize the electric part.
 //**               V15.14 15/12/2010: Added Si570 chip Grade, DCO parameter and correct the si570 
 //**                                  divider selecttion. Temperature raw value.
+//**               V15.15 10/12/2011: Changes made necessary for the new Si570 chip from SiLabs.
+//**                                  The new chip version with 7ppm temperature stability did change the
+//**                                  Index of the RFREQ registers from 7 to 13. Also a new function to
+//**                                  freeze the RFREQ when updating new data to the RFREQ (Freeze-M).
+//**                                  The firmware can auto-detect the new Si570 chip and use the correct
+//**                                  RFREQ index. The function CMD_SET_SI570_GRADE (0x44) is extended to
+//**                                  support the change of RFREQ index.
+//**                                  Also removed some global register variables to normal ram.
 //**                                  
 //**************************************************************************
 //
@@ -131,48 +139,64 @@
 // V15.12	5112 bytes (62.4% Full), ATtiny85, WinAVR-20090313, vusb-20090822
 // V15.13	4558 bytes (55.6% Full), ATtiny85, WinAVR-20100110, vusb-20090822
 // V15.14	4712 bytes (57.5% Full), ATtiny85, WinAVR-20100110, vusb-20100715
+// V15.15	4902 bytes (59.8% Full), ATtiny85, WinAVR-20100110, vusb-20100715
 //
 
 #include "main.h"
 
-EEMEM	var_t		E;							// Variables in eeprom
-		var_t		R							// Variables in ram
-					=							// Variables in flash rom
-					{	0xFF					// RC_OSCCAL
-					,	DEVICE_XTAL				// FreqXtal
-					,	0x03866666				// Freq at startup, 4.0 * 7.050 * _2(21)
+// Programming fuses and lockbits
+// The programming of the RSTDISBL is not working correct with my AVRISP-MKII
+FUSES = { 
+	.low      = (FUSE_CKSEL1 & FUSE_CKSEL2 & FUSE_CKSEL3 & FUSE_SUT0),
+	.high     = (FUSE_BODLEVEL1 & FUSE_SPIEN), // & FUSE_RSTDISBL),
+	.extended = (EFUSE_DEFAULT)
+};
+
+LOCKBITS = (LB_MODE_1); 
+
+EEMEM	var_t		E;									// Variables in eeprom
+		var_t		R									// Variables in ram
+					=									// Variables in flash rom
+{		.RC_OSCCAL			= 0xFF						// CPU osc tune value
+,		.FreqXtal			= DEVICE_XTAL				// crystal frequency[MHz] (8.24bits)
+,		.Freq				= 0x03866666				// Running frequency[MHz] (11.21bits)
 #if INCLUDE_SMOOTH
-					,	3500					// SmoothTunePPM
+,		.SmoothTunePPM		= 3500						// SmoothTunePPM
 #endif
 #if INCLUDE_FREQ_SM
-					,	0.0 * _2(21)			// Freq subtract value is 0.0MHz (11.21bits)
-					,	1.0 * _2(21)			// Freq multiply value os 1.0    (11.21bits)
+,		.FreqSub			= 0.0 * _2(21)				// Freq subtract value is 0.0MHz (11.21bits)
+,		.FreqMul			= 1.0 * _2(21)				// Freq multiply value os 1.0    (11.21bits)
 #endif
 #if INCLUDE_ABPF | INCLUDE_IBPF
-					, {	{  4.0 * 4.0 * _2(5) }	// Default filter cross over
-					,	{  8.0 * 4.0 * _2(5) }	// frequnecy for softrock V9
-					,	{ 16.0 * 4.0 * _2(5) }	// BPF. Four value array.
-					,	{ true } }				// ABPF is default enabled
-#endif											// Filter control on/off [3]
+,		.FilterCrossOver[0]	= {  4.0 * 4.0 * _2(5) }	// Default filter cross over
+,		.FilterCrossOver[1]	= {  8.0 * 4.0 * _2(5) }	// frequnecy for softrock V9
+,		.FilterCrossOver[2]	= { 16.0 * 4.0 * _2(5) }	// BPF. Four value array.
+,		.FilterCrossOver[3]	= { true }					// ABPF is default enabled
+#endif													// Filter control on/off [3]
 #if INCLUDE_IBPF
-					, 	{	0,            1,            2,            3 }
-					,	{	0.0 * _2(21), 0.0 * _2(21), 0.0 * _2(21), 0.0 * _2(21) }
-					,	{	1.0 * _2(21), 1.0 * _2(21), 1.0 * _2(21), 1.0 * _2(21) }
+,		.Band2Filter		= {	0,            1,            2,            3            }
+,		.BandSub			= {	0.0 * _2(21), 0.0 * _2(21), 0.0 * _2(21), 0.0 * _2(21) }
+,		.BandMul			= {	1.0 * _2(21), 1.0 * _2(21), 1.0 * _2(21), 1.0 * _2(21) }
 #endif
 #if INCLUDE_SN
-					,	'0'						// Default USB SerialNumber ID.
+,		.SerialNumber		= '0'						// Default USB SerialNumber ID.
 #endif
 #if INCLUDE_SI570_GRADE
-					,	DCO_MIN					// min VCO frequency 4850 MHz
-					,	DCO_MAX					// max VCO frequency 5670 MHz
-					,	CHIP_SI570_C			// Si570 chip grade C default (save)
+,		.Si570DCOMin		= DCO_MIN					// min VCO frequency 4850 MHz
+,		.Si570DCOMax		= DCO_MAX					// max VCO frequency 5670 MHz
+,		.Si570Grade			= CHIP_SI570_C				// Si570 chip grade C default (save)
+,		.Si570RFREQIndex	= RFREQ_AUTO_INDEX			// Index for the RFFREQ registers
 #endif
-					,	DEVICE_I2C				// I2C address or ChipCrtlData
-					};
+,		.ChipCrtlData		= DEVICE_I2C				// I2C address or ChipCrtlData
+};
 
-				Si570_t		Si570_Data;			// Si570 register values
-				sint16_t	replyBuf[4];		// USB Reply buffer
-static	uint8_t			bIndex;
+
+		sint16_t	replyBuf[4];				// USB Reply buffer
+		Si570_t		Si570_Data;					// Si570 register values
+		uint8_t		SI570_OffLine;				// Si570 offline
+static	uint8_t		bIndex;
+static	uint8_t		usbRequest;					// usbFunctionWrite command
+
 
 EMPTY_INTERRUPT( __vector_default );			// Redirect all unused interrupts to reti
 
@@ -425,7 +449,8 @@ usbFunctionSetup(uchar data[8])
 
 
 	SWITCH_CASE(CMD_GET_SI570)					// read out chip frequency control registers
-		return GetRegFromSi570();				// read all registers in one block to replyBuf[]
+		usbMsgPtr = (uint8_t*)&Si570_Data;		// read all registers in one block to Si570_Data
+		return Si570ReadRFREQ(rq->wIndex.bytes[0] != 0 ? rq->wIndex.bytes[0] : R.Si570RFREQIndex );
 
 
 #if  INCLUDE_I2C
@@ -463,11 +488,19 @@ usbFunctionSetup(uchar data[8])
 
 
 #if INCLUDE_SI570_GRADE
-	SWITCH_CASE(CMD_SET_SI570_GRADE)			// Set Si570 grade (A,B,C)
+	SWITCH_CASE(CMD_SET_SI570_GRADE)
 		if (rq->wValue.bytes[0] != 0) 
 		{
+			// Set Si570 grade (A,B,C) (Option code 3nd)
 			R.Si570Grade = rq->wValue.bytes[0];
 			eeprom_write_byte(&E.Si570Grade, R.Si570Grade);
+
+			// Set the RFREQ register index, Option code 2nd
+			R.Si570RFREQIndex = rq->wValue.bytes[1];
+			eeprom_write_byte(&E.Si570RFREQIndex, R.Si570RFREQIndex);
+
+			SI570_OffLine = true;				// Si570 is offline, not initialized
+			DeviceInit();						// Initialize the Si570 device.
 		}
 		if (rq->wIndex.word != 0) 
 		{
@@ -483,7 +516,7 @@ usbFunctionSetup(uchar data[8])
 			}
 		}
 		usbMsgPtr = (uint8_t*)&R.Si570DCOMin;
-        return sizeof(R.Si570Grade)+sizeof(R.Si570DCOMin)+sizeof(R.Si570DCOMax);
+        return sizeof(R.Si570Grade)+sizeof(R.Si570DCOMin)+sizeof(R.Si570DCOMax)+sizeof(R.Si570RFREQIndex);
 #endif
 
 
