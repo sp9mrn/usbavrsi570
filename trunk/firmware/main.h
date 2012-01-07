@@ -37,7 +37,7 @@
 
 
 #define	VERSION_MAJOR	15
-#define	VERSION_MINOR	14
+#define	VERSION_MINOR	15
 
 
 // Switch's to set the code needed
@@ -170,6 +170,7 @@ typedef struct
 		uint16_t	Si570DCOMin;			// Si570 Minimal DCO value
 		uint16_t	Si570DCOMax;			// Si570 Maximal DCO value
 		uint8_t		Si570Grade;				// Si570 chip grade
+		uint8_t		Si570RFREQIndex;		// [0..6bit]Index to be used for the RFFREQ registers (7-12, 13-18), [7bit] Use freeze RFREQ register
 #endif
 		uint8_t		ChipCrtlData;			// I2C addres, default 0x55 (85 dec)
 
@@ -179,13 +180,11 @@ typedef struct
 extern	var_t		R;						// Variables in Ram
 extern	sint16_t	replyBuf[4];			// USB Reply buffer
 extern	Si570_t		Si570_Data;				// Registers 7..12 value for the Si570
-register uint8_t	usbRequest asm("r6");	// usbFunctionWrite command
-register uint8_t	SI570_OffLine asm("r7");// Si570 loaded, i2c open collector line high
+extern	uint8_t		SI570_OffLine;			// Si570 offline
 
-extern	uint8_t		GetRegFromSi570(void);
+extern	uint8_t		Si570ReadRFREQ(uint8_t index);
 extern	void		SetFreq(uint32_t freq);
 extern	void		DeviceInit(void);
-
 
 #if INCLUDE_SI570
 
@@ -205,6 +204,12 @@ extern	void		DeviceInit(void);
 // Removing the 4*4 is out of the spec of the C grade chip, it may work!
 #define	CHIP_SI570_D			4			// Si570 Grade C device is used. (10 - 354MHz)
 
+// Using register-bank auto (Check 'signature' 07h, C2h, C0h, 00h, 00h, 00h) , 7Index (50ppm, 20ppm), 13Index (7ppm)
+#define	RFREQ_AUTO_INDEX		0
+#define	RFREQ_7_INDEX			7
+#define	RFREQ_13_INDEX			13
+#define	RFREQ_INDEX				0x7F
+#define	RFREQ_FREEZE			0x80
 
 extern	void		Si570CmdReg(uint8_t reg, uint8_t data);
 #endif
@@ -218,9 +223,11 @@ extern	uint32_t	FreqSmoothTune;			// The smooth tune center frequency
 #endif
 
 #if INCLUDE_I2C
-#define	I2C_KBITRATE	400.0				// I2C Bus speed in Kbs
+//#define	I2C_KBITRATE	400.0			// I2C Bus speed in Kbs
+#define	I2C_KBITRATE	200.0				// 400 was to high?!?
 
-register uint8_t	I2CErrors asm("r8");
+
+extern	uint8_t		I2CErrors;
 extern	void		I2CSendStart(void);
 extern	void		I2CSendStop(void);
 extern	void		I2CSendByte(uint8_t b);
