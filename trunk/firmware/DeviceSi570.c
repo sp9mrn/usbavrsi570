@@ -26,19 +26,14 @@
 
 #if INCLUDE_SI570
 
-register uint16_t	Si570_N		 asm("r2");	// Total division (N1 * HS_DIV)
-register uint8_t	Si570_N1	 asm("r4");	// The slow divider
-register uint8_t	Si570_HS_DIV asm("r5");	// The high speed divider
-
+static	uint16_t	Si570_N;				// Total division (N1 * HS_DIV)
+static	uint8_t		Si570_N1;				// The slow divider
+static	uint8_t		Si570_HS_DIV;			// The high speed divider
 #if INCLUDE_SMOOTH
 		uint32_t	FreqSmoothTune;			// The smooth tune center frequency
 #endif
-
-static	void		Si570Write(void);
-static	void		Si570Load(void);
-static	void		Si570FreezeNCO(void);
-static	void		Si570UnFreezeNCO(void);
-static	void		Si570NewFreq(void);
+static	void		Si570WriteSmallChange(void);
+static	void		Si570WriteLargeChange(void);
 
 #include "CalcVFO.c"						// Include code is small size
 
@@ -474,7 +469,7 @@ SetFreq(uint32_t freq)		// frequency [MHz] * 2^21
 	if ((R.SmoothTunePPM != 0) && Si570_Small_Change(freq))
 	{
 		Si570CalcRFREQ(freq);
-		Si570Write();
+		Si570WriteSmallChange();
 	}
 	else
 	{
@@ -482,7 +477,7 @@ SetFreq(uint32_t freq)		// frequency [MHz] * 2^21
 			return;
 
 		FreqSmoothTune = freq;
-		Si570Load();
+		Si570WriteLargeChange();
 	}
 
 #else
@@ -490,10 +485,54 @@ SetFreq(uint32_t freq)		// frequency [MHz] * 2^21
 	if (!Si570CalcDivider(freq) || !Si570CalcRFREQ(freq))
 		return;
 
-	Si570Load();
+	Si570WriteLargeChange();
 
 #endif
 }
+
+#if INCLUDE_SI570_GRADE
+
+// Check Si570 old/new 'signature' 07h, C2h, C0h, 00h, 00h, 00h
+static uint8_t
+Check_Signature()
+{
+	static PROGMEM uint8_t signature[] = { 0x07, 0xC2, 0xC0, 0x00, 0x00, 0x00 };
+	uint8_t i;
+
+	if (!Si570ReadRFREQ(RFREQ_13_INDEX))
+		return true;
+
+	for(i = 0; i < sizeof(signature); ++i)
+		if (pgm_read_byte(&signature[i]) != Si570_Data.bData[i])
+			break;
+
+	return i == 6;	//sizeof(signature);
+}
+
+static void
+Auto_index_detect_RFREQ(void)
+{
+	if ((R.Si570RFREQIndex & RFREQ_INDEX) == RFREQ_AUTO_INDEX)
+	{
+		// First RECALL the Si570 to default settings.
+		Si570CmdReg(135, 0x01);
+		_delay_us(100.0);
+
+		// Check if signature found, then it is a old or new 50/20ppm chip
+		// If not found it must be a *new* Si570 7ppm chip!
+		if (Check_Signature())
+		{
+			R.Si570RFREQIndex &= RFREQ_FREEZE;
+			R.Si570RFREQIndex |= RFREQ_7_INDEX;
+		}
+		else
+		{
+			R.Si570RFREQIndex &= RFREQ_FREEZE;
+			R.Si570RFREQIndex |= RFREQ_13_INDEX;
+		}
+	}
+}
+#endif
 
 void
 DeviceInit(void)
@@ -506,6 +545,9 @@ DeviceInit(void)
 		{
 #if INCLUDE_SMOOTH
 			FreqSmoothTune = 0;				// Next SetFreq call no smoodtune
+#endif
+#if INCLUDE_SI570_GRADE
+			Auto_index_detect_RFREQ();
 #endif
 			SetFreq(R.Freq);
 
@@ -541,29 +583,11 @@ Si570CmdReg(uint8_t reg, uint8_t data)
 	I2CSendStop();
 }
 
+// write all registers in one block from Si570_Data
 static void
-Si570NewFreq(void)
+Si570WriteRFREQ(void)
 {
-	Si570CmdReg(135, 0x40);
-}
-
-static void
-Si570FreezeNCO(void)
-{
-	Si570CmdReg(137, 0x10);
-}
-
-static void
-Si570UnFreezeNCO(void)
-{
-	Si570CmdReg(137, 0x00);
-}
-
-// write all registers in one block.
-static void
-Si570Write(void)
-{
-	if (Si570CmdStart(7))				// send Byte address 7
+	if (Si570CmdStart(R.Si570RFREQIndex & RFREQ_INDEX))	// send Byte address 7/13
 	{
 		uint8_t i;
 		for (i=0;i<6;i++)				// all 6 registers
@@ -572,21 +596,21 @@ Si570Write(void)
 	I2CSendStop();
 }
 
-// read all registers in one block to replyBuf[]
+// read all registers in one block to Si570_Data
 uint8_t
-GetRegFromSi570(void)
+Si570ReadRFREQ(uint8_t index)
 {
-	if (Si570CmdStart(7))				// send Byte address 7
+	if (Si570CmdStart(index & RFREQ_INDEX))	// send reg address 7 or 13
 	{
 		uint8_t i;
-		I2CSendStart();	
+		I2CSendStart();
 		I2CSendByte((R.ChipCrtlData<<1)|1);
 		for (i=0; i<5; i++)
 		{
-			((uint8_t*)replyBuf)[i] = I2CReceiveByte();
+			Si570_Data.bData[i] = I2CReceiveByte();
 			I2CSend0();					// 0 more bytes to follow
 		}
-		((uint8_t*)replyBuf)[5] = I2CReceiveByte();
+		Si570_Data.bData[5] = I2CReceiveByte();
 		I2CSend1();						// 1 Last byte
 	}
 	I2CSendStop(); 
@@ -595,15 +619,35 @@ GetRegFromSi570(void)
 }
 
 static void
-Si570Load(void)
+Si570WriteSmallChange(void)
 {
-	Si570FreezeNCO();
+	if (R.Si570RFREQIndex & RFREQ_FREEZE)
+	{
+		// Prevents interim frequency changes when writing RFREQ registers.
+		Si570CmdReg(135, 1<<5);		// Freeze M
+		if (I2CErrors == 0)
+		{
+			Si570WriteRFREQ();
+			Si570CmdReg(135, 0<<5);	// unFreeze M
+		}
+	}
+	else
+	{
+		Si570WriteRFREQ();
+	}
+}
+
+static void
+Si570WriteLargeChange(void)
+{
+	Si570CmdReg(137, 1<<4);			// Freeze NCO
 	if (I2CErrors == 0)
 	{
-		Si570Write();
-		Si570UnFreezeNCO();
-		Si570NewFreq();
+		Si570WriteRFREQ();
+		Si570CmdReg(137, 0<<4);		// unFreeze NCO
+		Si570CmdReg(135, 1<<6);		// NewFreq set (auto clear)
 	}
 }
 
 #endif
+
